@@ -41,6 +41,8 @@ class BenchmarkEngine:
     ]
 
     def run(self, case) -> EngineResult:
+        if case.input_data.get("benchmark_candidates"):
+            return self._run_eligibility(case)
         series = case.input_data.get("benchmark_index_series")
 
         if series is None:
@@ -95,6 +97,36 @@ class BenchmarkEngine:
                 # calcular métricas relativas (Excess Return, TE, Beta).
                 "elegibilidad_verificada": False,
                 "nota_elegibilidad": ELIGIBILITY_NOTE,
+            },
+        )
+
+    def _run_eligibility(self, case) -> EngineResult:
+        """
+        Modo cartera: aplica el AFI Benchmark Eligibility Framework (8
+        dimensiones, `engines/eligibility.py`) a cada candidato, en el orden
+        recibido, contra el perfil del portafolio. El primero que habilita la
+        comparación queda como benchmark del caso; los demás se informan con
+        la dimensión exacta que falló (D10).
+        """
+        from afi_quant.engines.base import parameter_value
+        from afi_quant.engines.eligibility import check_eligibility
+
+        params = {name: parameter_value(case, name) for name in (
+            "benchmark_critical_dimensions", "benchmark_partial_allows_comparison",
+            "benchmark_risk_ratio_max", "benchmark_allocation_max_distance_pct",
+            "benchmark_liquidity_max_gap_pct")}
+        portfolio = case.input_data["portfolio_profile"]
+        checks = [check_eligibility(portfolio, c, params) for c in case.input_data["benchmark_candidates"]]
+        chosen = next((c for c in checks if c["habilita_comparacion"]), None)
+        return EngineResult(
+            engine_name=self.name,
+            values={
+                "candidatos": checks,
+                "nemotecnico": chosen["benchmark"] if chosen else None,
+                "elegibilidad_verificada": chosen is not None,
+                "estado_elegibilidad": chosen["estado"] if chosen else "no_elegible",
+                "benchmark_del_caso": chosen["benchmark"] if chosen else None,
+                "parametros": params,
             },
         )
 

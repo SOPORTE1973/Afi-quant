@@ -51,6 +51,10 @@ class DecisionCase:
     input_data: dict[str, Any] = field(default_factory=dict)
     engine_results: dict[str, Any] = field(default_factory=dict)
     recommendation_level: RecommendationLevel | None = None
+    # M13 Alternatives y decisión del Wealth Manager (la toma siempre una persona;
+    # en la simulación queda marcada como decisión simulada).
+    alternatives: dict[str, Any] = field(default_factory=dict)
+    wm_decision: dict[str, Any] | None = None
     explanation: str | None = None
     history: list[str] = field(default_factory=list)
 

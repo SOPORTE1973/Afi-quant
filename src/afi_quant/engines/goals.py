@@ -1,5 +1,5 @@
 """
-Motor de Cliente/Goal y Motor de Escenarios.
+Motor de Cliente/Goal — `AFI.ClientGoal.Engine` (QM II.10, ESFS 11.10).
 
   - Goal-Based Monte Carlo con bootstrap por bloques (CORE): simula la
     cartera de cada meta hasta su fecha, con los aportes del cliente, y
@@ -7,8 +7,10 @@ Motor de Cliente/Goal y Motor de Escenarios.
     meses consecutivos se toman de la historia REAL del universo hasta la
     fecha de decisión, así que se preservan la correlación entre clases y
     la autocorrelación de corto plazo.
-  - Historical Simulation (CORE): aplica a la cartera actual los peores
-    12 meses y el peor mes observados en esa misma historia.
+
+No introduce modelos de mercado propios (ESFS 11.10): comparte el Monte
+Carlo / Block Bootstrap con el Motor de Escenarios (`engines/scenario.py`),
+que es donde vive el stress histórico.
 
 Si el caso trae una CMA (`cma_estimate`), cada retorno histórico se
 re-centra en ella: r' = (r − media histórica)·(σ_CMA/σ_hist) + μ_CMA/12.
@@ -72,29 +74,8 @@ def percentile(sorted_values: list[float], q: float) -> float:
     return sorted_values[idx]
 
 
-def historical_stress(history, weights: dict[str, float]) -> dict:
-    """Retornos observados SIN re-centrar: es lo que efectivamente pasó."""
-    port = [sum(weights[k] * history.returns[k][t] for k in weights) for t in range(len(history))]
-    worst_month = min(range(len(port)), key=lambda t: port[t])
-    worst_12 = None
-    for t in range(len(port) - 11):
-        r = 1.0
-        for x in port[t:t + 12]:
-            r *= 1 + x
-        if worst_12 is None or r - 1 < worst_12[0]:
-            worst_12 = (r - 1, t)
-    out = {
-        "peor_mes": port[worst_month],
-        "peor_mes_fecha": history.months[worst_month].isoformat(),
-    }
-    if worst_12:
-        out["peores_12m"] = worst_12[0]
-        out["peores_12m_hasta"] = history.months[worst_12[1] + 11].isoformat()
-    return out
-
-
-class GoalsEngine:
-    name = "goals"
+class ClientGoalEngine:
+    name = "clientgoal"
     required_critical_data = ["client_profile", "scenario_history", "as_of_date"]
 
     def run(self, case) -> EngineResult:
@@ -154,25 +135,21 @@ class GoalsEngine:
                 "meses": months,
                 "monto_objetivo": g.monto_objetivo,
                 "prob_exito": sum(v >= g.monto_objetivo for v in finals) / len(finals),
+                "probabilidad_deseada": g.probabilidad_deseada,
+                "bajo_probabilidad_deseada": (
+                    g.probabilidad_deseada is not None
+                    and sum(v >= g.monto_objetivo for v in finals) / len(finals) < g.probabilidad_deseada
+                ),
                 "p10": percentile(finals, 0.10),
                 "p50": percentile(finals, 0.50),
                 "p90": percentile(finals, 0.90),
                 "media": statistics.fmean(finals),
             }
 
-        total_value = sum(sleeve_values[k] for k in sleeves if k in sleeve_values)
-        total_w: dict[str, float] = {}
-        for k, w in sleeves.items():
-            if k not in sleeve_values:
-                continue
-            for v, x in w.items():
-                total_w[v] = total_w.get(v, 0.0) + x * sleeve_values[k] / total_value
-
         return EngineResult(
             engine_name=self.name,
             values={
                 "metas": results,
-                "stress_historico": historical_stress(history, total_w),
                 "simulaciones": int(n_sims),
                 "bloque_meses": int(block),
                 "historia_desde": history.months[0].isoformat(),

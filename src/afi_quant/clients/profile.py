@@ -30,6 +30,10 @@ class Goal:
     fecha: date | None           # None = reserva permanente (liquidez inmediata)
     capital_inicial: float       # CLP asignados a la meta al onboarding
     aporte_mensual: float        # CLP que el cliente aporta cada mes a esta meta
+    # Atributos del objetivo según DF v1.0 5.3
+    moneda: str = "CLP"
+    probabilidad_deseada: float | None = None   # p. ej. 0.80 = 80% de confianza
+    liquidez_requerida: str | None = None       # p. ej. "efectivo en la fecha"
 
     def horizon(self, as_of: date, short_max_months: int, medium_max_months: int) -> str:
         if self.fecha is None:

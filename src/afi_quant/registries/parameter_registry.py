@@ -254,6 +254,47 @@ def _seed_parameters() -> list[Parameter]:
                         "un target de correlación constante. " + _PROPOSAL_NOTE,
             source="[QM Parte XXII — Shrinkage (Ledoit-Wolf): requiere calibrar intensidad]",
         ),
+        # Benchmark Eligibility Framework (QM XII): parámetros de la regla de 8 dimensiones
+        Parameter(
+            name="benchmark_critical_dimensions",
+            category="Reglas de escalamiento",
+            description="Dimensiones del Eligibility Framework cuya falla vuelve no elegible al "
+                        "benchmark. D10 nombra moneda, liquidez y restricciones regulatorias; la "
+                        "lista cerrada es OPEN ISSUE ESFS-14. " + _PROPOSAL_NOTE,
+            source="[QM XVIII D10], ESFS-14",
+        ),
+        Parameter(
+            name="benchmark_partial_allows_comparison",
+            category="Reglas de escalamiento",
+            description="Si un benchmark en estado parcial (dimensión no crítica no verificable) "
+                        "habilita la comparación relativa con advertencia. Semántica de parcial "
+                        "pendiente (ESFS-14). " + _PROPOSAL_NOTE,
+            source="ESFS-14",
+        ),
+        Parameter(
+            name="benchmark_risk_ratio_max",
+            category="Límites de concentración y riesgo",
+            description="Cociente máximo entre la volatilidad del benchmark y la del portafolio "
+                        "(en cualquier dirección) para considerar el riesgo del mismo orden de "
+                        "magnitud. " + _PROPOSAL_NOTE,
+            source="[QM XII, dimensión Riesgo]",
+        ),
+        Parameter(
+            name="benchmark_allocation_max_distance_pct",
+            category="Límites de concentración y riesgo",
+            description="Distancia máxima (mitad de la suma de diferencias absolutas de pesos por "
+                        "clase) para considerar comparable la asset allocation. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="[QM XII, dimensión Asset Allocation]",
+        ),
+        Parameter(
+            name="benchmark_liquidity_max_gap_pct",
+            category="Límites de concentración y riesgo",
+            description="Diferencia máxima de peso fuera del bucket 0-3m entre portafolio y "
+                        "benchmark para considerar equivalente la liquidez. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="[QM XII, dimensión Liquidez]",
+        ),
         # 5. Reglas de escalamiento
         Parameter(
             name="escalation_level_2_threshold",

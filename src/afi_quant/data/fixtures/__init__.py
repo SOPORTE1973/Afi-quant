@@ -22,7 +22,24 @@ conector en vivo.
   - cfibtgplaa_nav_ajustado.csv — BTG Pactual Liquidez Alternativa FI
     (rut 10145, serie A), 2021-10-04 (inicio) a 2026-09-29, 1822 puntos.
   - cfietfge_nav_ajustado.csv — ETF Singular Global Equities
-    (rut 9706, UNICA), 2021-09-30 a 2026-09-29, 1822 puntos.
+    (rut 9706, UNICA), desde 2019-01-22.
+
+  Falcom Tactical, Chile Corta Duración, Chile Corporativo y Global
+  Equities se extendieron hacia atrás (desde 2019 o su inicio) con una
+  segunda consulta a `nav_ajustado`; el empalme del 2021-09-29/30 se
+  verificó continuo (ver commit). Esa historia larga alimenta los
+  episodios de stress histórico.
+
+Series vía valor cuota publicado (`valores`), header `fecha,valor_cuota`.
+Solo se usan para vehículos que no reparten (fondo mutuo índice, fondo de
+pensiones): ahí el valor cuota ya es retorno total.
+  - sec_ipsa_a_valor_cuota.csv — FM Security Index Fund S&P/CLX IPSA,
+    serie A (rut 8912), 2019-01-01 a 2026-09-29. Proxy del IPSA con
+    historia larga (el ETF Singular IPSA solo existe desde 2025-05).
+    `nav_ajustado` no está disponible para este fondo en el conector.
+  - afp_sistema_c_valor_cuota.csv — Sistema AFP, Fondo C (promedio
+    ponderado por patrimonio, Superintendencia de Pensiones),
+    2019-01-01 a 2026-08-31 (el conector publica con un mes de rezago).
   - cfietfipsa_nav_ajustado.csv — ETF Singular IPSA (rut 10748, serie
     UNICA), 2025-05-12 (inicio de la serie) a 2026-09-29, 499 puntos.
 """
@@ -40,11 +57,12 @@ _QUERIED = "consultado 2026-09-30"
 
 
 def load_series_csv(
-    filename: str, *, rut: str, serie: str, nemotecnico: str, source: str, desde: date | None = None
+    filename: str, *, rut: str, serie: str, nemotecnico: str, source: str, desde: date | None = None,
+    column: str = "nav_ajustado",
 ) -> AdjustedSeries:
     with open(_DIR / filename, encoding="utf-8", newline="") as fh:
         points = [
-            NavPoint(fecha=date.fromisoformat(row["fecha"]), valor_cuota=float(row["nav_ajustado"]))
+            NavPoint(fecha=date.fromisoformat(row["fecha"]), valor_cuota=float(row[column]))
             for row in csv.DictReader(fh)
         ]
     if desde is not None:
@@ -99,4 +117,22 @@ def etf_ipsa() -> AdjustedSeries:
         nemotecnico="CFIETFIPSA",
         source=f"mcp__MCP_Afitrading__nav_ajustado(rut=10748, serie=UNICA, "
                f"desde=2025-05-12, hasta=2026-09-29) — {_QUERIED}",
+    )
+
+
+def security_ipsa_index() -> AdjustedSeries:
+    return load_series_csv(
+        "sec_ipsa_a_valor_cuota.csv", rut="8912", serie="A", nemotecnico="SECURITY-IPSA-A",
+        source=f"mcp__MCP_Afitrading__valores(rut=8912, serie=A, desde=2019-01-01, "
+               f"hasta=2026-09-29) — {_QUERIED}; fondo índice sin repartos",
+        column="valor_cuota",
+    )
+
+
+def afp_sistema_c() -> AdjustedSeries:
+    return load_series_csv(
+        "afp_sistema_c_valor_cuota.csv", rut="AFP-SISTEMA", serie="C", nemotecnico="AFP-SISTEMA-C",
+        source=f"mcp__MCP_Afitrading__valores(rut=AFP-SISTEMA, serie=C, desde=2019-01-01, "
+               f"hasta=2026-08-31) — {_QUERIED}; fondo de pensiones sin repartos",
+        column="valor_cuota",
     )
