@@ -16,10 +16,12 @@ Arranque de **Fase 2 — Core Functional Architecture** (ver `ESFS-01` Parte 25)
 | M23 Model Governance Registry (`registries/model_governance_registry.py`) | **Completo** — 44 modelos, clasificación CORE/ADVANCED/RESEARCH/REJECTED, responsable institucional donde la fuente lo da, 6 items marcados OPEN donde no |
 | M15 Explanation Layer (`explanation/`) | Motor de reglas determinístico, sin reglas cargadas todavía |
 | M18 Decision History (`decision_history/`) | Store en memoria — la persistencia real depende de lo que resuelva el audit de infraestructura |
-| Motores Performance / Risk / Benchmark (`engines/`) | **Stubs.** Declaran `insufficient_data` siempre — correcto hasta que exista Fase 1 (datos reales) |
+| Motor Benchmark (`engines/benchmark.py`) | **Cálculo real** — TWR geométrico y retorno directo sobre `AdjustedSeries` (deduplicada), corre sobre datos reales del conector `MCP_Afitrading` cuando `case.input_data["benchmark_index_series"]` está presente. La certificación de elegibilidad (8 dimensiones, ESFS-01) NO está implementada — el resultado se marca explícitamente "elegibilidad no verificada" |
+| Motores Performance / Risk (`engines/`) | **Stubs.** Declaran `insufficient_data` siempre — correcto hasta que exista Fase 1 (datos reales de cartera vía TI) |
+| Capa de series (`engines/series.py`) | `dedupe_snapshots` (colapsa snapshots intradía del conector a un punto por fecha), `geometric_chain_return`/`total_return` (fórmula CORE de TWR). Validada con datos reales de ETF Singular IPSA (`data/benchmark_fixtures/`) |
 | Taxonomía de asset classes (`data/asset_taxonomy.py`) | Snapshot real tomado del conector `MCP_Afitrading`, no inventado — pendiente confirmar ruta de integración en vivo con TI |
 
-Lo que **no** existe todavía: persistencia real, autenticación, ningún motor con cálculo real, y las seis categorías del Parameter Registry.
+Lo que **no** existe todavía: persistencia real, autenticación, motores de Performance/Risk con cálculo real (dependen de datos de cartera vía TI), el Benchmark Eligibility Framework completo (8 dimensiones), y la confirmación final de las seis categorías del Parameter Registry.
 
 ## Por qué los motores no calculan nada todavía
 

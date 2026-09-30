@@ -45,6 +45,10 @@ class DecisionCase:
     state: DecisionCaseState = DecisionCaseState.INTAKE
     plan: AnalysisPlan | None = None
     completeness_report: CompletenessReport | None = None
+    # Datos de entrada que el Orchestrator NO interpreta ni transforma —
+    # solo los transporta hasta los motores (DF 2.2). Las claves que cada
+    # motor espera están en `engine.required_critical_data`.
+    input_data: dict[str, Any] = field(default_factory=dict)
     engine_results: dict[str, Any] = field(default_factory=dict)
     recommendation_level: RecommendationLevel | None = None
     explanation: str | None = None
