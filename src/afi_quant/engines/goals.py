@@ -48,8 +48,14 @@ def recentered_returns(history, cma) -> dict[str, list[float]]:
 
 def bootstrap_paths(history, weights: dict[str, float], months: int, n_sims: int,
                     block: int, start_value: float, monthly_contribution: float,
-                    seed: int = SEED, returns: dict[str, list[float]] | None = None) -> list[float]:
-    """Valor final de cada trayectoria (cartera rebalanceada mensualmente a `weights`)."""
+                    seed: int = SEED, returns: dict[str, list[float]] | None = None,
+                    checkpoints: dict[int, list[float]] | None = None) -> list[float]:
+    """
+    Valor final de cada trayectoria (cartera rebalanceada mensualmente a
+    `weights`). Si se pasa `checkpoints` ({mes: []}), guarda además el valor
+    de cada trayectoria en esos meses — para el abanico en el tiempo. No
+    altera la secuencia aleatoria: los valores finales son los mismos.
+    """
     returns = returns or history.returns
     port = [sum(weights[k] * returns[k][t] for k in weights) for t in range(len(history))]
     n = len(port)
@@ -65,6 +71,8 @@ def bootstrap_paths(history, weights: dict[str, float], months: int, n_sims: int
                     break
                 value = value * (1 + port[(start + j) % n]) + monthly_contribution
                 m += 1
+                if checkpoints is not None and m in checkpoints:
+                    checkpoints[m].append(value)
         finals.append(value)
     return finals
 
@@ -125,10 +133,18 @@ class ClientGoalEngine:
             months = months_between(as_of, g.fecha)
             if months <= 0:
                 continue
+            marks = {m: [] for m in list(range(12, months, 12)) + [months]}
             finals = sorted(bootstrap_paths(
                 history, sleeves[g.key], months, int(n_sims), int(block),
                 sleeve_values[g.key], contributions.get(g.key, 0.0), returns=returns,
+                checkpoints=marks,
             ))
+            path = [{"mes": 0, **{q: sleeve_values[g.key] for q in ("p10", "p25", "p50", "p75", "p90")}}]
+            for m in sorted(marks):
+                vals = sorted(marks[m])
+                path.append({"mes": m, "p10": percentile(vals, 0.10), "p25": percentile(vals, 0.25),
+                             "p50": percentile(vals, 0.50), "p75": percentile(vals, 0.75),
+                             "p90": percentile(vals, 0.90)})
             results[g.key] = {
                 "meta": g.nombre,
                 "tipo": "meta con fecha",
@@ -143,6 +159,7 @@ class ClientGoalEngine:
                 "p10": percentile(finals, 0.10),
                 "p50": percentile(finals, 0.50),
                 "p90": percentile(finals, 0.90),
+                "trayectoria": path,
                 "media": statistics.fmean(finals),
             }
 

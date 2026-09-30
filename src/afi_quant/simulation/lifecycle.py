@@ -70,6 +70,9 @@ class MonthRow:
     indice_twr: float
     valor_por_vehiculo: dict[str, float] = field(default_factory=dict)
     pesos_politica: dict[str, float] = field(default_factory=dict)   # SAA vigente agregada
+    # Cuotas en poder de cada meta DESPUÉS de los flujos del día: con esto y el NAV
+    # diario se reconstruye la valorización diaria entre cierres de mes.
+    unidades: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 @dataclass
@@ -146,6 +149,9 @@ class LifecycleSimulation:
             for k, v in hold.items():
                 out[k] = out.get(k, 0.0) + v
         return out
+
+    def units_snapshot(self) -> dict[str, dict[str, float]]:
+        return {g: dict(hold) for g, hold in self.units.items()}
 
     def policy_weights(self, ym) -> dict[str, float]:
         """SAA vigente agregada: objetivos de cada meta ponderados por su valor."""
@@ -233,7 +239,8 @@ class LifecycleSimulation:
             **self._projection_ctx(case),
         }, case, {"capital": capital})
         self.rows.append(MonthRow(t0, dict(capital), total0, total0, 0.0, 1.0,
-                                  self.vehicle_values(ym0), self.policy_weights(ym0)))
+                                  self.vehicle_values(ym0), self.policy_weights(ym0),
+                                  self.units_snapshot()))
 
         prev_total_after = total0
         index = 1.0
@@ -270,7 +277,7 @@ class LifecycleSimulation:
             self.rows.append(MonthRow(
                 as_of, {g: sum(v.values()) for g, v in values.items()},
                 total_after, contributed, withdrawn, index,
-                self.vehicle_values(ym), self.policy_weights(ym),
+                self.vehicle_values(ym), self.policy_weights(ym), self.units_snapshot(),
             ))
 
             if index > peak_index:
