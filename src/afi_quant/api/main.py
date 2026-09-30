@@ -19,6 +19,7 @@ from afi_quant.registries.model_governance_registry import (
     MODEL_GOVERNANCE_REGISTRY,
     open_items,
 )
+from afi_quant.registries.parameter_registry import CATEGORIES, PARAMETER_REGISTRY
 
 app = FastAPI(
     title="AFI Quant",
@@ -97,5 +98,26 @@ def list_model_governance() -> dict:
                 "requires_periodic_validation": m.requires_periodic_validation,
             }
             for m in MODEL_GOVERNANCE_REGISTRY
+        ],
+    }
+
+
+@app.get("/registries/parameters")
+def list_parameters() -> dict:
+    return {
+        "categories": CATEGORIES,
+        "categories_status": "propuesta — pendiente de confirmar contra ESFS-01",
+        "total": len(PARAMETER_REGISTRY.parameters),
+        "undeclared": len(PARAMETER_REGISTRY.undeclared()),
+        "parameters": [
+            {
+                "name": p.name,
+                "category": p.category,
+                "description": p.description,
+                "unit": p.unit,
+                "value": p.value,
+                "source": p.source,
+            }
+            for p in PARAMETER_REGISTRY.parameters
         ],
     }

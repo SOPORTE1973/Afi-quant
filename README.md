@@ -12,7 +12,7 @@ Arranque de **Fase 2 — Core Functional Architecture** (ver `ESFS-01` Parte 25)
 |---|---|
 | M02 Orchestrator (`orchestrator/`) | Esqueleto funcional — arma el `AnalysisPlan`, enruta el `DecisionCase` por estados, nunca calcula (DF 2.2) |
 | M08 Completeness Gate (`completeness/`) | Funcional — bloquea un caso y declara qué falta, en vez de calcular sobre datos pobres |
-| M22 Parameter Registry (`registries/parameter_registry.py`) | Esquema listo; **vacío a propósito** — las seis categorías de gobernanza exactas aún no están confirmadas contra la fuente |
+| M22 Parameter Registry (`registries/parameter_registry.py`) | **Propuesta cargada** — 6 categorías + 17 parámetros declarados (15 sin valor, 2 confirmados en la fuente), aprobada por el usuario 2026-09-30, pendiente de contrastar contra ESFS-01 |
 | M23 Model Governance Registry (`registries/model_governance_registry.py`) | **Completo** — 44 modelos, clasificación CORE/ADVANCED/RESEARCH/REJECTED, responsable institucional donde la fuente lo da, 6 items marcados OPEN donde no |
 | M15 Explanation Layer (`explanation/`) | Motor de reglas determinístico, sin reglas cargadas todavía |
 | M18 Decision History (`decision_history/`) | Store en memoria — la persistencia real depende de lo que resuelva el audit de infraestructura |

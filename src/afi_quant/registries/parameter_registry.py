@@ -4,17 +4,20 @@ Parameter Registry (M22).
 ESFS-01 exige un registro con "las seis categorías de gobernanza y
 todos los parámetros declarados, aunque sin valor" (Fase 0, entregable 2).
 
-ESTADO DE ESTE ARCHIVO: el esquema (abajo) está listo para recibir
-parámetros. Las seis categorías institucionales de gobernanza en sí
-—sus nombres exactos— no se fijan en este commit: ese detalle vive en
-ESFS-01 y debe confirmarse contra el documento fuente antes de cargar
-parámetros reales. Cargar categorías inventadas aquí violaría el
-mismo principio que gobierna todo este proyecto (nunca rellenar un
-vacío de la fuente con un supuesto). Por eso el registro arranca vacío
-y tipado, no con seis categorías adivinadas.
+ESTADO DE ESTE ARCHIVO: las seis categorías de abajo son una
+PROPUESTA — armada cruzando las decisiones institucionales (D1-D13) y
+los motores descritos en ESFS-01 y la Metodología Cuantitativa, no una
+cita textual del documento. El usuario la revisó y aprobó como
+estructura de trabajo (2026-09-30), pero sigue pendiente de
+contrastarla contra el nombre y alcance exacto que ESFS-01 le da a
+"las seis categorías de gobernanza" — si difieren, este archivo se
+corrige para que coincida con la fuente, no al revés.
 
-Cada Parameter tiene versión, vigencia, quién propone y quién aprueba
-— eso sí está confirmado (ESFS-01 Parte 25, Fase 0).
+Cada parámetro declarado abajo tiene `value=None` a propósito: es una
+DECLARACIÓN de qué parámetro debe existir y qué decisión alimenta —
+nunca un umbral inventado. Los valores los define el Comité de
+Inversiones (o quien corresponda por categoría) y se cargan después,
+versionados.
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ from datetime import date
 @dataclass
 class Parameter:
     name: str
-    category: str  # ver nota de estado arriba — pendiente de confirmar contra ESFS-01
+    category: str
     description: str
     unit: str | None = None
     value: float | str | None = None       # None = declarado, sin valor todavía
@@ -52,5 +55,165 @@ class ParameterRegistry:
         return [p for p in self.parameters if p.category == category]
 
 
-# Instancia compartida — arranca vacía a propósito (ver docstring del módulo).
-PARAMETER_REGISTRY = ParameterRegistry()
+# ---------------------------------------------------------------------------
+# Las seis categorías propuestas (pendientes de confirmar contra ESFS-01)
+# ---------------------------------------------------------------------------
+
+CATEGORIES: tuple[str, ...] = (
+    "Bandas y umbrales de rebalanceo",
+    "Límites de concentración y riesgo",
+    "Horizontes y buckets de liquidez",
+    "CMAs institucionales",
+    "Reglas de escalamiento",
+    "Parámetros de escenarios y stress testing",
+)
+
+_PROPOSAL_NOTE = "Categoría propuesta — pendiente de confirmar contra ESFS-01."
+
+
+def _seed_parameters() -> list[Parameter]:
+    return [
+        # 1. Bandas y umbrales de rebalanceo
+        Parameter(
+            name="rebalancing_band_pct",
+            category="Bandas y umbrales de rebalanceo",
+            description="Desviación permitida por asset class respecto al SAA antes de "
+                        "considerar rebalanceo. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="D1, D8",
+        ),
+        Parameter(
+            name="materiality_threshold_pct",
+            category="Bandas y umbrales de rebalanceo",
+            description="Umbral que determina si un drift es material y dispara acción. "
+                        + _PROPOSAL_NOTE,
+            unit="%",
+            source="D1, [QM Parte XXIII P4]",
+        ),
+        # 2. Límites de concentración y riesgo
+        Parameter(
+            name="max_concentration_per_issuer_pct",
+            category="Límites de concentración y riesgo",
+            description="Concentración máxima permitida en un solo emisor. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="D4, D7",
+        ),
+        Parameter(
+            name="max_concentration_per_asset_class_pct",
+            category="Límites de concentración y riesgo",
+            description="Concentración máxima permitida por asset class. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="D4, D7",
+        ),
+        Parameter(
+            name="max_concentration_per_manager_pct",
+            category="Límites de concentración y riesgo",
+            description="Concentración máxima permitida por gestor/AGF. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="D7",
+        ),
+        Parameter(
+            name="max_hhi",
+            category="Límites de concentración y riesgo",
+            description="Valor máximo aceptable del índice Herfindahl-Hirschman del "
+                        "portafolio. " + _PROPOSAL_NOTE,
+            source="D7, [QM Parte XXII — HHI]",
+        ),
+        # 3. Horizontes y buckets de liquidez
+        Parameter(
+            name="liquidity_bucket_short_days",
+            category="Horizontes y buckets de liquidez",
+            description="Límite superior del bucket de liquidez corto (0–3 meses). "
+                        + _PROPOSAL_NOTE,
+            unit="días",
+            value=90,  # el tramo en sí (0-3m) SÍ está confirmado en la fuente [QM Parte XXII]
+            source="D6, D9, [QM Parte XXII — Liquidity Ladder]",
+        ),
+        Parameter(
+            name="liquidity_bucket_medium_days",
+            category="Horizontes y buckets de liquidez",
+            description="Límite superior del bucket de liquidez medio (3–12 meses). "
+                        + _PROPOSAL_NOTE,
+            unit="días",
+            value=365,  # el tramo en sí (3-12m) SÍ está confirmado en la fuente [QM Parte XXII]
+            source="D6, D9, [QM Parte XXII — Liquidity Ladder]",
+        ),
+        Parameter(
+            name="min_lcr_ratio",
+            category="Horizontes y buckets de liquidez",
+            description="Ratio mínimo de cobertura de liquidez (LCR) exigido por bucket. "
+                        + _PROPOSAL_NOTE,
+            source="D6, D9, [QM Parte XXII — Liquidity Coverage Ratio]",
+        ),
+        # 4. CMAs institucionales
+        Parameter(
+            name="cma_expected_return",
+            category="CMAs institucionales",
+            description="Retorno esperado institucional por asset class (nunca supuesto "
+                        "individual del asesor). " + _PROPOSAL_NOTE,
+            unit="%",
+            source="[QM Parte VII], Construction Engine",
+        ),
+        Parameter(
+            name="cma_expected_volatility",
+            category="CMAs institucionales",
+            description="Volatilidad esperada institucional por asset class. "
+                        + _PROPOSAL_NOTE,
+            unit="%",
+            source="[QM Parte VII], Construction Engine",
+        ),
+        Parameter(
+            name="cma_correlation_matrix",
+            category="CMAs institucionales",
+            description="Matriz de correlaciones institucional entre asset classes. "
+                        + _PROPOSAL_NOTE,
+            source="[QM Parte VII], Construction/Diversification Engine",
+        ),
+        # 5. Reglas de escalamiento
+        Parameter(
+            name="escalation_level_2_threshold",
+            category="Reglas de escalamiento",
+            description="Condición que escala un caso a Nivel 2 (diagnóstico + "
+                        "alternativas, sin recomendación cerrada). " + _PROPOSAL_NOTE,
+            source="[DF 8.3 OQ1]",
+        ),
+        Parameter(
+            name="escalation_level_3_threshold",
+            category="Reglas de escalamiento",
+            description="Condición que escala un caso a Nivel 3 (recomendación completa). "
+                        + _PROPOSAL_NOTE,
+            source="[DF 8.3 OQ1]",
+        ),
+        Parameter(
+            name="escalation_approver_role",
+            category="Reglas de escalamiento",
+            description="Rol institucional que debe aprobar cada nivel de escalamiento. "
+                        + _PROPOSAL_NOTE,
+            source="[DF 8.3 OQ1]",
+        ),
+        # 6. Parámetros de escenarios y stress testing
+        Parameter(
+            name="stress_scenario_definitions",
+            category="Parámetros de escenarios y stress testing",
+            description="Catálogo de shocks hipotéticos definidos por el Comité para el "
+                        "Motor de Escenarios. " + _PROPOSAL_NOTE,
+            source="D13, [QM Parte XI — Hypothetical Stress]",
+        ),
+        Parameter(
+            name="stress_horizon_days",
+            category="Parámetros de escenarios y stress testing",
+            description="Horizonte temporal sobre el cual se proyecta cada escenario de "
+                        "estrés. " + _PROPOSAL_NOTE,
+            unit="días",
+            source="D13, [QM Parte XI]",
+        ),
+    ]
+
+
+# Instancia compartida — cargada con la propuesta de seis categorías
+# aprobada por el usuario (2026-09-30), pendiente de validar contra
+# ESFS-01. Casi todos los parámetros quedan con value=None: son
+# declaraciones de qué debe existir, no umbrales inventados. Las dos
+# excepciones (los tramos 0-3m / 3-12m del bucket de liquidez) SÍ
+# están confirmadas textualmente en la fuente, por eso llevan valor.
+PARAMETER_REGISTRY = ParameterRegistry(parameters=_seed_parameters())
