@@ -28,37 +28,38 @@ from afi_quant.engines.base import EngineResult, parameter_value
 GRID_STEP = 0.05
 
 
-def optimize_grid(cma, keys: list[str], delta: float, vol_cap: float,
-                  max_weight: dict[str, float], step: float = GRID_STEP):
-    """Mejor cartera de la grilla que cumple las restricciones, o None si ninguna."""
+def grid_portfolios(keys: list[str], max_weight: dict[str, float], step: float = GRID_STEP):
+    """Todas las carteras long-only de la grilla (pesos múltiplos de `step`, suma 1)."""
     units = round(1 / step)
     caps = [min(units, math.floor(max_weight[k] / step + 1e-9)) for k in keys]
-    best = None
-    best_util = -math.inf
     alloc = [0] * len(keys)
-
-    def evaluate():
-        nonlocal best, best_util
-        w = {k: alloc[i] / units for i, k in enumerate(keys) if alloc[i]}
-        var = cma.portfolio_variance(w)
-        if math.sqrt(var) > vol_cap + 1e-12:
-            return
-        util = cma.portfolio_return(w) - delta / 2 * var
-        if util > best_util + 1e-15:
-            best, best_util = dict(w), util
 
     def rec(i: int, remaining: int):
         if i == len(keys) - 1:
             if remaining <= caps[i]:
                 alloc[i] = remaining
-                evaluate()
+                yield {k: alloc[j] / units for j, k in enumerate(keys) if alloc[j]}
             return
         for u in range(min(remaining, caps[i]) + 1):
             alloc[i] = u
-            rec(i + 1, remaining - u)
+            yield from rec(i + 1, remaining - u)
         alloc[i] = 0
 
-    rec(0, units)
+    yield from rec(0, units)
+
+
+def optimize_grid(cma, keys: list[str], delta: float, vol_cap: float,
+                  max_weight: dict[str, float], step: float = GRID_STEP):
+    """Mejor cartera de la grilla que cumple las restricciones, o None si ninguna."""
+    best = None
+    best_util = -math.inf
+    for w in grid_portfolios(keys, max_weight, step):
+        var = cma.portfolio_variance(w)
+        if math.sqrt(var) > vol_cap + 1e-12:
+            continue
+        util = cma.portfolio_return(w) - delta / 2 * var
+        if util > best_util + 1e-15:
+            best, best_util = w, util
     return best
 
 
@@ -145,6 +146,8 @@ class ConstructionEngine:
                 "cma_hasta": cma.hasta.isoformat(),
                 "cma_n_obs": cma.n_obs,
                 "nota_cma": cma.nota,
+                "shrinkage_covarianzas": cma.shrinkage_intensidad,
+                "shrinkage_metodo": cma.shrinkage_metodo,
                 "no_calculado": blocked,
             },
         )

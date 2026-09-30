@@ -38,7 +38,7 @@ SIMULATION_VALUES: dict[str, float | str | dict] = {
     "short_horizon_eligible_subclass": "Money Market",
     "risk_aversion_delta": 3,
     "cma_return_shrinkage": 0.5,
-    "cma_covariance_shrinkage": 0.3,
+    "cma_covariance_shrinkage": "ledoit_wolf",
     "drawdown_alert_pct": 5,
     "mc_simulations": 5000,
     "mc_block_months": 6,

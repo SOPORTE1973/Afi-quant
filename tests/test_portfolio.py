@@ -6,12 +6,15 @@ ciclo de vida simulado (cliente ficticio sobre precios reales).
 from __future__ import annotations
 
 import math
+import random
 from dataclasses import replace
 from datetime import date
 
 import pytest
 
-from afi_quant.engines.cma import CMA, build_cma, monthly_history
+from afi_quant.engines.cma import (
+    CMA, LEDOIT_WOLF, MonthlyHistory, build_cma, estimate_cma, ledoit_wolf_intensity, monthly_history,
+)
 from afi_quant.engines.construction import ConstructionEngine, optimize_grid
 from afi_quant.engines.diversification import hhi, risk_contributions
 from afi_quant.engines.goals import bootstrap_paths
@@ -94,6 +97,33 @@ def test_cma_uses_no_data_after_decision_date(universe):
     h = monthly_history(universe, ONBOARDING_DATE, 36)
     assert len(h) == 36
     assert max(h.months) <= ONBOARDING_DATE
+
+
+def _synthetic_history(n_months: int, seed: int = 7) -> MonthlyHistory:
+    rng = random.Random(seed)
+    common = [rng.gauss(0, 0.02) for _ in range(n_months)]
+    returns = {k: [0.6 * c + rng.gauss(0, s) for c in common]
+               for k, s in {"A": 0.01, "B": 0.02, "C": 0.03, "D": 0.015}.items()}
+    months = [date(2000 + i // 12, i % 12 + 1, 28) for i in range(n_months)]
+    return MonthlyHistory(keys=list(returns), months=months, returns=returns)
+
+
+def test_ledoit_wolf_intensity_shrinks_less_with_more_data():
+    short, long_ = _synthetic_history(36), _synthetic_history(2400)
+    d_short, d_long = ledoit_wolf_intensity(short), ledoit_wolf_intensity(long_)
+    assert 0 <= d_long < d_short <= 1
+    assert d_long < 0.1
+
+
+def test_cma_applies_calibrated_intensity(universe):
+    h = monthly_history(universe, ONBOARDING_DATE, 36)
+    cma = estimate_cma(h, 0.5, LEDOIT_WOLF)
+    assert cma.shrinkage_intensidad == pytest.approx(ledoit_wolf_intensity(h))
+    assert cma.shrinkage_metodo.startswith("Ledoit-Wolf")
+    fixed = estimate_cma(h, 0.5, 0.3)
+    assert fixed.shrinkage_intensidad == 0.3
+    for i in h.keys:  # las varianzas no se tocan; solo las covarianzas cruzadas
+        assert cma.cov[(i, i)] == pytest.approx(fixed.cov[(i, i)])
 
 
 def test_simulation_values_never_leak_into_institutional_registry():

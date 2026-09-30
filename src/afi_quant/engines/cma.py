@@ -16,7 +16,11 @@ Método:
     simple subiría el retorno esperado de las clases de bajo riesgo; el
     prior de Sharpe común conserva la relación riesgo-retorno.
   - Σ anual = Σ muestral mensual × 12, con shrinkage hacia un target de
-    correlación constante con intensidad `cma_covariance_shrinkage`
+    correlación constante (QM XXII — Shrinkage Ledoit-Wolf). La intensidad es
+    `cma_covariance_shrinkage`: un número fijo 0-1, o "ledoit_wolf" para
+    calibrarla con el estimador óptimo de Ledoit y Wolf (2004, "Honey, I
+    Shrunk the Sample Covariance Matrix"), que minimiza el error cuadrático
+    esperado frente a la Σ verdadera dado el largo de la muestra.
 """
 
 from __future__ import annotations
@@ -73,6 +77,13 @@ class CMA:
     desde: date
     hasta: date
     nota: str = CMA_NOTE
+    shrinkage_intensidad: float | None = None
+    shrinkage_metodo: str | None = None
+    correlacion_promedio: float | None = None   # target de correlación constante
+
+    def corr_post(self, i: str, j: str) -> float:
+        """Correlación implícita en la Σ usada para optimizar (post shrinkage)."""
+        return self.cov[(i, j)] / (self.vol(i) * self.vol(j))
 
     def vol(self, k: str) -> float:
         return math.sqrt(self.cov[(k, k)])
@@ -84,8 +95,48 @@ class CMA:
         return sum(w[k] * self.mu[k] for k in w)
 
 
-def estimate_cma(history: MonthlyHistory, return_shrinkage: float, cov_shrinkage: float) -> CMA:
+LEDOIT_WOLF = "ledoit_wolf"
+
+
+def ledoit_wolf_intensity(history: MonthlyHistory) -> float:
+    """
+    Intensidad óptima de shrinkage hacia correlación constante (Ledoit y Wolf
+    2004): δ* = max(0, min(1, (π̂ − ρ̂) / (γ̂ · T))), donde π̂ mide el ruido de
+    la Σ muestral, ρ̂ la parte de ese ruido que comparte el target y γ̂ la
+    distancia entre ambas. Con pocas observaciones por activo, δ* tiende a 1.
+    """
     keys, R = history.keys, history.returns
+    T = len(history)
+    m = {k: statistics.fmean(R[k]) for k in keys}
+    y = {k: [x - m[k] for x in R[k]] for k in keys}
+    s = {(i, j): sum(a * b for a, b in zip(y[i], y[j])) / T for i in keys for j in keys}
+    sd = {k: math.sqrt(s[(k, k)]) for k in keys}
+    n = len(keys)
+    rbar = sum(s[(i, j)] / (sd[i] * sd[j]) for i in keys for j in keys if i != j) / (n * (n - 1))
+    target = {(i, j): s[(i, j)] if i == j else rbar * sd[i] * sd[j] for i in keys for j in keys}
+    pi = {(i, j): sum((a * b - s[(i, j)]) ** 2 for a, b in zip(y[i], y[j])) / T
+          for i in keys for j in keys}
+
+    def theta(i, j):  # asintótica de cov(s_ii, s_ij)
+        return sum((a * a - s[(i, i)]) * (a * b - s[(i, j)]) for a, b in zip(y[i], y[j])) / T
+
+    rho = sum(pi[(k, k)] for k in keys) + sum(
+        rbar / 2 * (sd[j] / sd[i] * theta(i, j) + sd[i] / sd[j] * theta(j, i))
+        for i in keys for j in keys if i != j
+    )
+    gamma = sum((target[ij] - s[ij]) ** 2 for ij in s)
+    if gamma == 0:
+        return 1.0
+    return max(0.0, min(1.0, (sum(pi.values()) - rho) / gamma / T))
+
+
+def estimate_cma(history: MonthlyHistory, return_shrinkage: float,
+                 cov_shrinkage: float | str) -> CMA:
+    keys, R = history.keys, history.returns
+    if cov_shrinkage == LEDOIT_WOLF:
+        intensity, method = ledoit_wolf_intensity(history), "Ledoit-Wolf (2004), calibrada"
+    else:
+        intensity, method = float(cov_shrinkage), "fija (Parameter Registry)"
     mu_hist = {k: statistics.fmean(R[k]) * 12 for k in keys}
     s = {(i, j): statistics.covariance(R[i], R[j]) for i in keys for j in keys}
     sd = {k: math.sqrt(s[(k, k)]) for k in keys}
@@ -105,19 +156,20 @@ def estimate_cma(history: MonthlyHistory, return_shrinkage: float, cov_shrinkage
     off = [corr[(i, j)] for i in keys for j in keys if i != j]
     rbar = statistics.fmean(off)
     target = {(i, j): s[(i, j)] if i == j else rbar * sd[i] * sd[j] for i in keys for j in keys}
-    cov = {ij: ((1 - cov_shrinkage) * s[ij] + cov_shrinkage * target[ij]) * 12 for ij in s}
+    cov = {ij: ((1 - intensity) * s[ij] + intensity * target[ij]) * 12 for ij in s}
 
     return CMA(
         keys=keys, mu=mu, mu_historico=mu_hist, ancla=anchor, sharpe_comun=sharpe,
         cov=cov, corr=corr,
         n_obs=len(history), desde=history.months[0], hasta=history.months[-1],
+        shrinkage_intensidad=intensity, shrinkage_metodo=method, correlacion_promedio=rbar,
     )
 
 
 INSTITUTIONAL_NOTE = (
     "Retornos esperados y volatilidades tomados del Parameter Registry "
     "(cma_expected_return / cma_expected_volatility); correlaciones históricas "
-    "con shrinkage."
+    "con shrinkage Ledoit-Wolf."
 )
 
 
@@ -145,12 +197,16 @@ def apply_registry_assumptions(cma: CMA, universe, expected_returns_pct: dict | 
     return replace(cma, mu=mu, cov=cov, nota=INSTITUTIONAL_NOTE)
 
 
+def _shrinkage_param(value):
+    return LEDOIT_WOLF if value == LEDOIT_WOLF else float(value)
+
+
 def build_cma(universe, as_of: date, window_months: int, parameter_of) -> CMA:
     """CMA en la fecha de decisión, con lo que el Parameter Registry tenga cargado."""
     cma = estimate_cma(
         monthly_history(universe, as_of, window_months),
         float(parameter_of("cma_return_shrinkage")),
-        float(parameter_of("cma_covariance_shrinkage")),
+        _shrinkage_param(parameter_of("cma_covariance_shrinkage")),
     )
     return apply_registry_assumptions(
         cma, universe, parameter_of("cma_expected_return"), parameter_of("cma_expected_volatility"),

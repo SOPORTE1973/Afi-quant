@@ -251,7 +251,8 @@ def _seed_parameters() -> list[Parameter]:
             name="cma_covariance_shrinkage",
             category="CMAs institucionales",
             description="Intensidad (0-1) del shrinkage de la matriz de covarianzas hacia "
-                        "un target de correlación constante. " + _PROPOSAL_NOTE,
+                        "un target de correlación constante, o 'ledoit_wolf' para calibrarla "
+                        "con el estimador óptimo de Ledoit-Wolf (2004). " + _PROPOSAL_NOTE,
             source="[QM Parte XXII — Shrinkage (Ledoit-Wolf): requiere calibrar intensidad]",
         ),
         # Benchmark Eligibility Framework (QM XII): parámetros de la regla de 8 dimensiones
