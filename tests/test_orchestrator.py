@@ -3,9 +3,10 @@ Tests del pipeline del Orchestrator (M02) + Completeness Gate (M08).
 
 Cubre el camino feliz mínimo: un caso se planea, el gate lo bloquea
 por falta de datos (comportamiento correcto — no inventa resultados),
-y separadamente, un caso con datos "disponibles" simulados corre los
-motores stub y recibe resultados marcados como insuficientes (porque
-los motores reales de Fase 3.1 todavía no están implementados).
+y separadamente, un caso con datos "disponibles" simulados pero sin
+series reales en input_data corre los motores y recibe resultados
+marcados como insuficientes. El caso con datos reales está en
+test_pipeline.py.
 """
 
 from __future__ import annotations
@@ -54,7 +55,7 @@ def test_completeness_gate_blocks_when_data_missing():
     assert "nav_series_native_frequency" in case.completeness_report.missing
 
 
-def test_engines_run_declare_insufficient_data_when_stubbed():
+def test_engines_declare_insufficient_data_when_input_data_is_empty():
     orchestrator = _make_orchestrator()
     case = DecisionCase(trigger="revisión periódica")
     orchestrator.build_plan(
@@ -62,8 +63,9 @@ def test_engines_run_declare_insufficient_data_when_stubbed():
     )
 
     # Simulamos que el Completeness Gate SÍ aprueba (todos los datos
-    # declarados como disponibles), para probar que el motor stub —
-    # aunque el gate pase — sigue sin inventar un resultado.
+    # declarados como disponibles) pero input_data viene vacío, para
+    # probar que cada motor — aunque el gate pase — no inventa un
+    # resultado sin la serie real.
     report = CompletenessReport.evaluate(
         required_critical=["nav_series_native_frequency", "cash_flows_dated_classified"],
         required_optional=[],

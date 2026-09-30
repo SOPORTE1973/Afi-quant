@@ -119,6 +119,15 @@ def _seed_parameters() -> list[Parameter]:
                         "portafolio. " + _PROPOSAL_NOTE,
             source="D7, [QM Parte XXII — HHI]",
         ),
+        Parameter(
+            name="downside_deviation_mar_pct",
+            category="Límites de concentración y riesgo",
+            description="Minimum Acceptable Return (MAR) mensual contra el que se mide la "
+                        "Downside Deviation. El Motor de Riesgo no calcula Downside "
+                        "Deviation hasta que tenga valor. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="[QM Parte XXII — Downside Deviation: requiere definición consistente de MAR]",
+        ),
         # 3. Horizontes y buckets de liquidez
         Parameter(
             name="liquidity_bucket_short_days",
@@ -217,3 +226,10 @@ def _seed_parameters() -> list[Parameter]:
 # excepciones (los tramos 0-3m / 3-12m del bucket de liquidez) SÍ
 # están confirmadas textualmente en la fuente, por eso llevan valor.
 PARAMETER_REGISTRY = ParameterRegistry(parameters=_seed_parameters())
+
+
+def get_parameter(name: str, registry: ParameterRegistry = PARAMETER_REGISTRY) -> Parameter:
+    for p in registry.parameters:
+        if p.name == name:
+            return p
+    raise KeyError(f"Parámetro '{name}' no declarado en el Parameter Registry")

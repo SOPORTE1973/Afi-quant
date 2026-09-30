@@ -17,13 +17,15 @@ Arranque de **Fase 2 — Core Functional Architecture** (ver `ESFS-01` Parte 25)
 | M15 Explanation Layer (`explanation/`) | Motor de reglas determinístico, sin reglas cargadas todavía |
 | M18 Decision History (`decision_history/`) | Store en memoria — la persistencia real depende de lo que resuelva el audit de infraestructura |
 | Motor Benchmark (`engines/benchmark.py`) | **Cálculo real** — TWR geométrico y retorno directo sobre `AdjustedSeries` (deduplicada), corre sobre datos reales del conector `MCP_Afitrading` cuando `case.input_data["benchmark_index_series"]` está presente. La certificación de elegibilidad (8 dimensiones, ESFS-01) NO está implementada — el resultado se marca explícitamente "elegibilidad no verificada" |
-| Motores Performance / Risk (`engines/`) | **Stubs.** Declaran `insufficient_data` siempre — correcto hasta que exista Fase 1 (datos reales de cartera vía TI) |
+| Motor Performance (`engines/performance.py`) | **MVP a nivel fondo** — TWR del período y trailing 1a/3a, CAGR, Excess Return (bloqueado hasta que el benchmark esté certificado). Validado contra las rentabilidades que publica el conector. Carteras de cliente con flujos siguen dependiendo de Fase 1 |
+| Motor Risk (`engines/risk.py`) | **MVP a nivel fondo** — volatilidad (retornos mensuales, mín. 36), Max Drawdown con recuperación, VaR/ES históricos 95%/99% a 1 mes. Downside Deviation espera el MAR del Parameter Registry; TE/Beta esperan benchmark certificado |
+| Pipeline (`pipeline.py`, `demo.py`) | **MVP de punta a punta** — Intake → Plan → Completeness Gate → Benchmark/Performance/Risk → Explanation Layer (`explanation/fund_review_rules.py`), sobre datos reales en `data/fixtures/` |
 | Capa de series (`engines/series.py`) | `dedupe_snapshots` (colapsa snapshots intradía del conector a un punto por fecha), `geometric_chain_return`/`total_return` (fórmula CORE de TWR). Validada con datos reales de ETF Singular IPSA (`data/benchmark_fixtures/`) |
 | Taxonomía de asset classes (`data/asset_taxonomy.py`) | Snapshot real tomado del conector `MCP_Afitrading`, no inventado — pendiente confirmar ruta de integración en vivo con TI |
 
-Lo que **no** existe todavía: persistencia real, autenticación, motores de Performance/Risk con cálculo real (dependen de datos de cartera vía TI), el Benchmark Eligibility Framework completo (8 dimensiones), y la confirmación final de las seis categorías del Parameter Registry.
+Lo que **no** existe todavía: persistencia real, autenticación, Performance/Risk sobre carteras de cliente con flujos (dependen de datos de cartera vía TI), Diagnosis/Recommendation (M11-M14), el Benchmark Eligibility Framework completo (8 dimensiones), y la confirmación final de las seis categorías del Parameter Registry.
 
-## Por qué los motores no calculan nada todavía
+## Por qué los motores declaran lo que no calculan
 
 No es un placeholder olvidado: es la postura correcta según el Principio 8 de la metodología (AFI Quantitative Methodology). Un motor sin datos CRITICAL confirmados **debe** declarar `insufficient_data`, nunca inventar un número. Los motores reales se implementan en Fase 3.1 una vez que el audit de infraestructura de datos (Fase 0) confirme qué existe.
 
@@ -33,6 +35,7 @@ No es un placeholder olvidado: es la postura correcta según el Principio 8 de l
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest -q
+python -m afi_quant.demo      # caso de punta a punta con datos reales
 uvicorn afi_quant.api.main:app --reload
 ```
 

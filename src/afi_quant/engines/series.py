@@ -107,3 +107,64 @@ def geometric_chain_return(points: list[NavPoint]) -> float:
 def total_return(series: AdjustedSeries) -> float:
     """Retorno directo entre el primer y el último punto de la serie."""
     return simple_return(series.start, series.end)
+
+
+# ---------------------------------------------------------------------------
+# Remuestreo y ventanas — compartido por Performance y Risk
+# ---------------------------------------------------------------------------
+
+DAYS_PER_YEAR = 365.25
+
+
+def years_between(p0: NavPoint, p1: NavPoint) -> float:
+    """Años calendario entre dos puntos (base 365,25 — los fondos chilenos
+    publican NAV también fines de semana, así que no se usa base 252)."""
+    return (p1.fecha - p0.fecha).days / DAYS_PER_YEAR
+
+
+def month_end_points(points: list[NavPoint]) -> list[NavPoint]:
+    """
+    Última observación disponible de cada mes calendario. El mes en curso
+    (si la serie termina a mitad de mes) queda representado por su último
+    dato disponible — quien consume esto debe declararlo, no ocultarlo.
+    """
+    by_month: dict[tuple[int, int], NavPoint] = {}
+    for p in points:
+        by_month[(p.fecha.year, p.fecha.month)] = p  # points viene ascendente
+    return [by_month[k] for k in sorted(by_month)]
+
+
+def period_returns(points: list[NavPoint]) -> list[float]:
+    """Retornos simples entre puntos consecutivos (R_t sin flujos externos)."""
+    return [simple_return(p0, p1) for p0, p1 in zip(points, points[1:])]
+
+
+def trailing_window(points: list[NavPoint], years: int) -> list[NavPoint] | None:
+    """
+    Puntos de los últimos `years` años terminando en el último dato. Parte
+    del último punto disponible en o antes de la fecha de inicio exacta.
+    Devuelve None si la serie no cubre la ventana completa — nunca se
+    anualiza ni se reporta una ventana parcial como si fuera completa.
+    """
+    if not points:
+        return None
+    end = points[-1].fecha
+    try:
+        start = end.replace(year=end.year - years)
+    except ValueError:  # 29-feb
+        start = end.replace(year=end.year - years, day=28)
+    if points[0].fecha > start:
+        return None
+    anchor = max(i for i, p in enumerate(points) if p.fecha <= start)
+    return points[anchor:]
+
+
+def align_on_common_dates(
+    a: list[NavPoint], b: list[NavPoint]
+) -> tuple[list[NavPoint], list[NavPoint]]:
+    """Recorta dos series a las fechas que tienen ambas (para métricas relativas)."""
+    common = {p.fecha for p in a} & {p.fecha for p in b}
+    return (
+        [p for p in a if p.fecha in common],
+        [p for p in b if p.fecha in common],
+    )

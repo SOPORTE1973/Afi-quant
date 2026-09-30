@@ -90,6 +90,34 @@ class BenchmarkEngine:
                 "retorno_periodo_twr": chained,
                 "retorno_periodo_directo": direct,
                 "fuente": series.source,
+                # Siempre False hasta que exista el Eligibility Framework:
+                # Performance/Risk leen esta clave para decidir si pueden
+                # calcular métricas relativas (Excess Return, TE, Beta).
+                "elegibilidad_verificada": False,
                 "nota_elegibilidad": ELIGIBILITY_NOTE,
             },
         )
+
+
+def certified_benchmark(case) -> tuple[AdjustedSeries | None, str | None]:
+    """
+    Gate que usan Performance y Risk antes de cualquier métrica relativa.
+
+    Devuelve (serie, None) solo si el Motor de Benchmark ya corrió en este
+    caso y certificó la elegibilidad; si no, (None, motivo). Hoy siempre
+    devuelve el motivo — ver ELIGIBILITY_NOTE.
+    """
+    result = case.engine_results.get(BenchmarkEngine.name)
+    if result is None:
+        return None, (
+            "El Motor de Benchmark no corrió antes en este caso — sin su gate "
+            "no hay contra qué comparar."
+        )
+    if result.insufficient_data:
+        return None, f"El Motor de Benchmark no produjo resultado: {result.insufficient_data_reason}"
+    if not result.values.get("elegibilidad_verificada"):
+        return None, (
+            f"El benchmark candidato ({result.values['nemotecnico']}) no tiene "
+            "elegibilidad certificada (Principio 7)."
+        )
+    return case.input_data["benchmark_index_series"], None

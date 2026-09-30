@@ -46,8 +46,11 @@ class ExplanationLayer:
     def register(self, rule: ExplanationRule) -> None:
         self._rules.append(rule)
 
-    def explain(self, context: dict) -> str:
-        parts = [rule.render(context) for rule in self._rules if rule.applies(context)]
+    def explain_parts(self, context: dict) -> list[str]:
+        return [rule.render(context) for rule in self._rules if rule.applies(context)]
+
+    def explain(self, context: dict, separator: str = " ") -> str:
+        parts = self.explain_parts(context)
         if not parts:
             return "No hay reglas de explicación aplicables a este contexto."
-        return " ".join(parts)
+        return separator.join(parts)
