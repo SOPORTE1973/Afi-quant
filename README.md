@@ -49,4 +49,4 @@ uvicorn afi_quant.api.main:app --reload
 
 ## Documentos fuente
 
-La arquitectura completa vive en los documentos del proyecto (ESFS-01, AFI Quantitative Methodology, AFI Decision Framework, AFI Methodology Volúmenes I-III). Este código es una implementación de esos documentos — cuando el código y la fuente discrepen, la fuente manda y el código se corrige, no al revés.
+La arquitectura completa vive en [`docs/`](docs/README.md): ESFS-01, AFI Quantitative Methodology v1.0, AFI Decision Framework v1.1 (vigente) y v1.0, y AFI Methodology Volúmenes I, II y III-B. Este código es una implementación de esos documentos — cuando el código y la fuente discrepen, la fuente manda y el código se corrige, no al revés.
