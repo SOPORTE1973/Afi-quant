@@ -29,7 +29,7 @@ from __future__ import annotations
 import math
 import statistics
 
-from afi_quant.engines.base import EngineResult
+from afi_quant.engines.base import EngineResult, parameter_value
 from afi_quant.engines.benchmark import certified_benchmark
 from afi_quant.engines.series import (
     AdjustedSeries,
@@ -38,7 +38,6 @@ from afi_quant.engines.series import (
     month_end_points,
     period_returns,
 )
-from afi_quant.registries.parameter_registry import get_parameter
 
 MIN_MONTHLY_OBS = 36
 VAR_CONFIDENCES = (0.95, 0.99)
@@ -89,7 +88,7 @@ class RiskEngine:
             blocked["volatilidad_anual"] = reason
             blocked["var_es"] = reason
 
-        mar = get_parameter("downside_deviation_mar_pct").value
+        mar = parameter_value(case, "downside_deviation_mar_pct")
         if mar is None:
             blocked["downside_deviation"] = (
                 "El Parameter Registry no tiene valor para 'downside_deviation_mar_pct' "

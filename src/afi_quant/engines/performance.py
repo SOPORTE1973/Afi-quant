@@ -18,6 +18,8 @@ en silencio (QM Principio 8).
 
 from __future__ import annotations
 
+from datetime import date
+
 from afi_quant.engines.base import EngineResult
 from afi_quant.engines.benchmark import certified_benchmark
 from afi_quant.engines.series import (
@@ -101,3 +103,42 @@ class PerformanceEngine:
 def excess_return(fund_points, benchmark_points) -> float:
     """TWR fondo − TWR benchmark sobre las mismas fechas (aritmético, como en el registro)."""
     return geometric_chain_return(fund_points) - geometric_chain_return(benchmark_points)
+
+
+# ---------------------------------------------------------------------------
+# Cartera con flujos (cliente) — TWR y MWR/XIRR, ambos CORE
+# ---------------------------------------------------------------------------
+
+def twr_with_flows(valuations: list[tuple[float, float]]) -> list[float]:
+    """
+    Retornos de subperíodo R_t = (EMV − BMV − CF)/(BMV + CF) con el flujo al
+    INICIO del subperíodo, como en el registro de modelos. Cada elemento de
+    `valuations` es (valor de mercado al cierre del período anterior después
+    de flujos, valor de mercado al cierre de este período antes de flujos):
+    así el flujo ya viene incluido en BMV y R_t = EMV/BMV − 1.
+    """
+    return [end / start - 1 for start, end in valuations if start > 0]
+
+
+def xirr(flows: list[tuple[date, float]], lo: float = -0.99, hi: float = 10.0) -> float:
+    """
+    Tasa anual que iguala a cero el valor presente de los flujos (convención
+    del inversionista: aportes negativos, retiros y valor final positivos).
+    Bisección: determinística y sin dependencias.
+    """
+    t0 = flows[0][0]
+
+    def npv(rate: float) -> float:
+        return sum(cf / (1 + rate) ** ((d - t0).days / 365.0) for d, cf in flows)
+
+    f_lo, f_hi = npv(lo), npv(hi)
+    if f_lo * f_hi > 0:
+        raise ValueError("XIRR sin cambio de signo en el intervalo de búsqueda")
+    for _ in range(200):
+        mid = (lo + hi) / 2
+        f_mid = npv(mid)
+        if f_lo * f_mid <= 0:
+            hi, f_hi = mid, f_mid
+        else:
+            lo, f_lo = mid, f_mid
+    return (lo + hi) / 2

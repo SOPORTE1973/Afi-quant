@@ -37,3 +37,17 @@ class EngineRegistry(dict):
 
     def register(self, engine: Engine) -> None:
         self[engine.name] = engine
+
+
+def parameter_value(case, name: str):
+    """
+    Valor de un parámetro para este caso. Los motores nunca leen un umbral
+    fijo en el código: lo piden al Parameter Registry que viaja en el caso
+    (`input_data["parameter_registry"]`) o, si no viene, al institucional.
+    Devuelve None si el parámetro está declarado sin valor — el motor que
+    lo pidió debe declarar el bloqueo, no inventar el número.
+    """
+    from afi_quant.registries.parameter_registry import PARAMETER_REGISTRY, get_parameter
+
+    registry = case.input_data.get("parameter_registry") or PARAMETER_REGISTRY
+    return get_parameter(name, registry).value

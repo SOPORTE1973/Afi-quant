@@ -32,7 +32,7 @@ class Parameter:
     category: str
     description: str
     unit: str | None = None
-    value: float | str | None = None       # None = declarado, sin valor todavía
+    value: float | str | dict | None = None  # None = declarado, sin valor todavía
     version: int = 1
     effective_from: date | None = None
     proposed_by: str | None = None
@@ -128,6 +128,61 @@ def _seed_parameters() -> list[Parameter]:
             unit="%",
             source="[QM Parte XXII — Downside Deviation: requiere definición consistente de MAR]",
         ),
+        Parameter(
+            name="risk_horizon_short_max_months",
+            category="Límites de concentración y riesgo",
+            description="Meses hasta la fecha de una meta bajo los cuales la meta se trata "
+                        "como horizonte de riesgo CORTO. " + _PROPOSAL_NOTE,
+            unit="meses",
+            source="Motor de Cliente/Goal, [QM Parte XXII — Goal-Based Monte Carlo]",
+        ),
+        Parameter(
+            name="risk_horizon_medium_max_months",
+            category="Límites de concentración y riesgo",
+            description="Meses hasta la fecha de una meta bajo los cuales la meta se trata "
+                        "como horizonte MEDIO (sobre esto, LARGO). " + _PROPOSAL_NOTE,
+            unit="meses",
+            source="Motor de Cliente/Goal",
+        ),
+        Parameter(
+            name="vol_cap_short_pct",
+            category="Límites de concentración y riesgo",
+            description="Volatilidad ex-ante máxima de la cartera asignada a una meta de "
+                        "horizonte corto. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="D4, D5, D8",
+        ),
+        Parameter(
+            name="vol_cap_medium_pct",
+            category="Límites de concentración y riesgo",
+            description="Volatilidad ex-ante máxima para una meta de horizonte medio. "
+                        + _PROPOSAL_NOTE,
+            unit="%",
+            source="D4, D5, D8",
+        ),
+        Parameter(
+            name="vol_cap_long_pct",
+            category="Límites de concentración y riesgo",
+            description="Volatilidad ex-ante máxima para una meta de horizonte largo, "
+                        "según el perfil de riesgo del cliente. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="D4, D5, D8",
+        ),
+        Parameter(
+            name="max_weight_per_vehicle_pct",
+            category="Límites de concentración y riesgo",
+            description="Peso máximo de un solo vehículo dentro de la cartera de una meta "
+                        "de horizonte medio o largo. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="D4, D7",
+        ),
+        Parameter(
+            name="short_horizon_eligible_subclass",
+            category="Límites de concentración y riesgo",
+            description="Subclase (taxonomía AfiTrading) elegible para metas de horizonte "
+                        "corto. " + _PROPOSAL_NOTE,
+            source="D6, D9",
+        ),
         # 3. Horizontes y buckets de liquidez
         Parameter(
             name="liquidity_bucket_short_days",
@@ -178,6 +233,27 @@ def _seed_parameters() -> list[Parameter]:
                         + _PROPOSAL_NOTE,
             source="[QM Parte VII], Construction/Diversification Engine",
         ),
+        Parameter(
+            name="risk_aversion_delta",
+            category="CMAs institucionales",
+            description="Coeficiente de aversión al riesgo δ del MVO robusto: "
+                        "max(w'μ − δ/2·w'Σw). " + _PROPOSAL_NOTE,
+            source="[QM Parte XXII — MVO robusto]",
+        ),
+        Parameter(
+            name="cma_return_shrinkage",
+            category="CMAs institucionales",
+            description="Intensidad (0-1) con que el retorno esperado de cada clase se "
+                        "acerca al promedio de las clases antes de optimizar. " + _PROPOSAL_NOTE,
+            source="[QM Parte XXII — MVO robusto: sensible a error de estimación de μ]",
+        ),
+        Parameter(
+            name="cma_covariance_shrinkage",
+            category="CMAs institucionales",
+            description="Intensidad (0-1) del shrinkage de la matriz de covarianzas hacia "
+                        "un target de correlación constante. " + _PROPOSAL_NOTE,
+            source="[QM Parte XXII — Shrinkage (Ledoit-Wolf): requiere calibrar intensidad]",
+        ),
         # 5. Reglas de escalamiento
         Parameter(
             name="escalation_level_2_threshold",
@@ -200,6 +276,14 @@ def _seed_parameters() -> list[Parameter]:
                         + _PROPOSAL_NOTE,
             source="[DF 8.3 OQ1]",
         ),
+        Parameter(
+            name="drawdown_alert_pct",
+            category="Reglas de escalamiento",
+            description="Caída desde el máximo de la cartera total que dispara una revisión "
+                        "extraordinaria. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="[DF 8.3 OQ1]",
+        ),
         # 6. Parámetros de escenarios y stress testing
         Parameter(
             name="stress_scenario_definitions",
@@ -215,6 +299,20 @@ def _seed_parameters() -> list[Parameter]:
                         "estrés. " + _PROPOSAL_NOTE,
             unit="días",
             source="D13, [QM Parte XI]",
+        ),
+        Parameter(
+            name="mc_simulations",
+            category="Parámetros de escenarios y stress testing",
+            description="Número de trayectorias del Goal-Based Monte Carlo (el registro de "
+                        "modelos indica 5.000-20.000). " + _PROPOSAL_NOTE,
+            source="[QM Parte XXII — Goal-Based Monte Carlo]",
+        ),
+        Parameter(
+            name="mc_block_months",
+            category="Parámetros de escenarios y stress testing",
+            description="Largo de bloque (meses) del bootstrap por bloques. " + _PROPOSAL_NOTE,
+            unit="meses",
+            source="[QM Parte XXII, III.0 Rev.6 — Block Bootstrap]",
         ),
     ]
 

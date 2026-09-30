@@ -20,6 +20,8 @@ Arranque de **Fase 2 — Core Functional Architecture** (ver `ESFS-01` Parte 25)
 | Motor Performance (`engines/performance.py`) | **MVP a nivel fondo** — TWR del período y trailing 1a/3a, CAGR, Excess Return (bloqueado hasta que el benchmark esté certificado). Validado contra las rentabilidades que publica el conector. Carteras de cliente con flujos siguen dependiendo de Fase 1 |
 | Motor Risk (`engines/risk.py`) | **MVP a nivel fondo** — volatilidad (retornos mensuales, mín. 36), Max Drawdown con recuperación, VaR/ES históricos 95%/99% a 1 mes. Downside Deviation espera el MAR del Parameter Registry; TE/Beta esperan benchmark certificado |
 | Pipeline (`pipeline.py`, `demo.py`) | **MVP de punta a punta** — Intake → Plan → Completeness Gate → Benchmark/Performance/Risk → Explanation Layer (`explanation/fund_review_rules.py`), sobre datos reales en `data/fixtures/` |
+| Construcción de cartera (`engines/cma.py`, `construction.py`, `diversification.py`, `liquidity.py`, `goals.py`, `rebalancing.py`) | **MVP** — CMA (históricas o del Parameter Registry), MVO robusto por meta en grilla exhaustiva, HHI y contribución al riesgo, escalera de liquidez y LCR, Goal-Based Monte Carlo con bootstrap por bloques, stress histórico, rebalanceo por bandas |
+| Ciclo de vida simulado (`simulation/`) | **Demo** — cliente ficticio con 3 metas y horizontes de riesgo, recorrido real nov-2024 a sep-2026 sobre 5 fondos del conector: onboarding, aportes, revisiones trimestrales y anual, glide path, retiro de meta, TWR/XIRR y proyección. Los parámetros de simulación son ficticios y viven en una copia del registro; el institucional sigue sin valores |
 | Capa de series (`engines/series.py`) | `dedupe_snapshots` (colapsa snapshots intradía del conector a un punto por fecha), `geometric_chain_return`/`total_return` (fórmula CORE de TWR). Validada con datos reales de ETF Singular IPSA (`data/benchmark_fixtures/`) |
 | Taxonomía de asset classes (`data/asset_taxonomy.py`) | Snapshot real tomado del conector `MCP_Afitrading`, no inventado — pendiente confirmar ruta de integración en vivo con TI |
 
@@ -36,6 +38,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest -q
 python -m afi_quant.demo      # caso de punta a punta con datos reales
+python -m afi_quant.simulation.demo   # ciclo de vida de un cliente ficticio
 uvicorn afi_quant.api.main:app --reload
 ```
 

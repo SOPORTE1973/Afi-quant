@@ -39,19 +39,23 @@ def default_registry() -> EngineRegistry:
     return registry
 
 
-def run_fund_review(
+def run_case(
+    registry: EngineRegistry,
+    engines: list[str],
     input_data: dict[str, Any],
     *,
-    trigger: str = "revisión periódica de fondo",
+    trigger: str,
     client_ref: str | None = None,
-    registry: EngineRegistry | None = None,
+    orchestrator: Orchestrator | None = None,
 ) -> DecisionCase:
-    registry = registry or default_registry()
-    orchestrator = Orchestrator(registry)
-
+    """
+    Intake -> Plan -> Completeness Gate -> motores, para cualquier caso. Los
+    datos CRITICAL requeridos se leen de los motores del plan, en orden.
+    """
+    orchestrator = orchestrator or Orchestrator(registry)
     case = DecisionCase(trigger=trigger, client_ref=client_ref, input_data=dict(input_data))
     case._log(f"Intake: {trigger}")
-    orchestrator.build_plan(case, engines=FUND_REVIEW_ENGINES, reason=trigger)
+    orchestrator.build_plan(case, engines=engines, reason=trigger)
 
     required: list[str] = []
     for name in case.plan.engines:
@@ -64,10 +68,25 @@ def run_fund_review(
         available=[k for k in required if case.input_data.get(k) is not None],
     )
     orchestrator.apply_completeness_gate(case, report)
+    if case.state != DecisionCaseState.DATA_BLOCKED:
+        orchestrator.run_engines(case)
+    return case
+
+
+def run_fund_review(
+    input_data: dict[str, Any],
+    *,
+    trigger: str = "revisión periódica de fondo",
+    client_ref: str | None = None,
+    registry: EngineRegistry | None = None,
+) -> DecisionCase:
+    case = run_case(
+        registry or default_registry(), FUND_REVIEW_ENGINES, input_data,
+        trigger=trigger, client_ref=client_ref,
+    )
     if case.state == DecisionCaseState.DATA_BLOCKED:
         return case
 
-    orchestrator.run_engines(case)
     case.explanation = fund_review_layer().explain(build_context(case), separator="\n")
     case._log("Explanation Layer: explicación determinística adjunta")
     return case
