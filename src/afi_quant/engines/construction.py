@@ -95,6 +95,9 @@ class ConstructionEngine:
             g.key: g.capital_inicial for g in client.goals
         }
         max_w = float(params["max_weight_per_vehicle_pct"]) / 100
+        ips = case.input_data.get("ips")
+        ips_vol = (ips.limites_riesgo.volatilidad_max_pct / 100
+                   if ips is not None and ips.limites_riesgo.volatilidad_max_pct is not None else None)
         delta = float(params["risk_aversion_delta"])
 
         sleeves: dict[str, dict] = {}
@@ -105,6 +108,10 @@ class ConstructionEngine:
             horizon = goal.horizon(as_of, int(params["risk_horizon_short_max_months"]),
                                    int(params["risk_horizon_medium_max_months"]))
             vol_cap = float(params[VOL_CAP_PARAM[horizon]]) / 100
+            cap_source = "horizonte"
+            # El límite de volatilidad del IPS del cliente también restringe (ESFS 9.1, M03)
+            if ips_vol is not None and ips_vol < vol_cap:
+                vol_cap, cap_source = ips_vol, "IPS"
             if horizon == SHORT:
                 keys = [k for k, v in universe.items()
                         if v.subclase == params["short_horizon_eligible_subclass"]]
@@ -122,6 +129,7 @@ class ConstructionEngine:
             sleeves[goal.key] = {
                 "horizonte": horizon,
                 "tope_volatilidad": vol_cap,
+                "tope_fuente": cap_source,
                 "pesos": weights,
                 "retorno_esperado": cma.portfolio_return(weights),
                 "volatilidad_ex_ante": math.sqrt(cma.portfolio_variance(weights)),

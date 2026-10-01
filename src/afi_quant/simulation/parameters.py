@@ -50,6 +50,12 @@ SIMULATION_VALUES: dict[str, float | str | dict] = {
     "outlier_reversal_ratio": 0.7,
     "outlier_scale_window_obs": 63,
     "nav_gap_max_days": 7,
+    # Due diligence de fondos (señales del Checklist 2 del Vol II).
+    "dd_min_track_record_years": 3,
+    "dd_underperformance_months": 6,
+    "dd_te_increase_ratio": 1.5,
+    "dd_top5_max_pct": 60,
+    "dd_single_position_max_pct": 25,
     # Reverse stress: la ruptura es la caída máxima que tolera el IPS del cliente.
     "reverse_stress_breach_limit": "ips_max_drawdown",
     # tradeoff_materiality_threshold queda sin valor a propósito (DF 8.3 OQ4):

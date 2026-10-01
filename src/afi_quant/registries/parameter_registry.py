@@ -373,6 +373,46 @@ def _seed_parameters() -> list[Parameter]:
         # Calidad de datos (ESFS 8.4; umbrales abiertos en ESFS-09). Van en "Reglas de
         # escalamiento" porque un dato marcado escala a validación humana; ESFS 8.6
         # exige seis categorías y no se crea una séptima.
+        # Due diligence de fondos (M10; Vol II Checklist 2): una señal escala a análisis
+        # de causa raíz y, si corresponde, al Comité. Umbrales sin calibrar en las fuentes.
+        Parameter(
+            name="dd_min_track_record_years",
+            category="Reglas de escalamiento",
+            description="Trayectoria mínima del fondo (años) para no marcarla como señal. " + _PROPOSAL_NOTE,
+            unit="años",
+            source="[V2 Checklist 1 — mínimos de track record]",
+        ),
+        Parameter(
+            name="dd_underperformance_months",
+            category="Reglas de escalamiento",
+            description="Meses seguidos con exceso 12m negativo contra el índice para marcar "
+                        "underperformance persistente. " + _PROPOSAL_NOTE,
+            unit="meses",
+            source="[V2 Checklist 2], [QM XVIII D11]",
+        ),
+        Parameter(
+            name="dd_te_increase_ratio",
+            category="Reglas de escalamiento",
+            description="Múltiplo de la mediana histórica del TE 36m a partir del cual el aumento "
+                        "de TE es señal. " + _PROPOSAL_NOTE,
+            source="[V2 Checklist 2 — incremento de TE no explicado]",
+        ),
+        Parameter(
+            name="dd_top5_max_pct",
+            category="Reglas de escalamiento",
+            description="Peso de las 5 mayores posiciones del fondo sobre el cual se marca "
+                        "concentración. " + _PROPOSAL_NOTE,
+            unit="%",
+            source="[V2 B7 — capacity / concentration drift]",
+        ),
+        Parameter(
+            name="dd_single_position_max_pct",
+            category="Reglas de escalamiento",
+            description="Peso de una sola posición del fondo sobre el cual se marca concentración. "
+                        + _PROPOSAL_NOTE,
+            unit="%",
+            source="[V2 B7], [QM VI — look-through]",
+        ),
         Parameter(
             name="stale_nav_run_obs",
             category="Reglas de escalamiento",

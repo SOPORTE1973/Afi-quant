@@ -1,0 +1,67 @@
+{
+  "fuente": "Conector MCP_Afitrading: detalle_fondo (ficha CMF) y cartera (IFRS, cierre 2026-06). Consultado el 2026-10-01.",
+  "fondos": {
+    "MM": {
+      "rut": "9823-K", "nombre_completo": "Fondo de Inversión ETF Singular Chile Corta Duración",
+      "administradora": "Singular Asset Management AGF S.A.", "rut_administradora": "76917333-1",
+      "tipo": "FIRES", "tipo_fondo": "Rescatable", "inversionista": "Público General",
+      "inicio_operaciones": "2019-11-05", "fecha_reglamento": "2024-12-16", "vigencia": "Vigente",
+      "liquidez_declarada": null,
+      "cartera": {"periodo": "2026-06", "posiciones": 39, "aum_mm_clp": 30065,
+                  "mayor_posicion_pct": 7.30, "mayor_emisor": "Banco BICE", "mayor_emisor_pct": 18.75,
+                  "top5_pct": null, "efectivos": null,
+                  "detalle": "100% depósitos a plazo bancarios N-1; plazo promedio 0,36 años; 9 bancos emisores",
+                  "incorporaciones": 11, "liquidaciones": 12, "look_through": null}
+    },
+    "RF": {
+      "rut": "9705-5", "nombre_completo": "Fondo de Inversión ETF Singular Chile Corporativo",
+      "administradora": "Singular Asset Management AGF S.A.", "rut_administradora": "76917333-1",
+      "tipo": "FIRES", "tipo_fondo": "Rescatable", "inversionista": "Público General",
+      "inicio_operaciones": "2019-01-29", "fecha_reglamento": "2024-12-16", "vigencia": "Vigente",
+      "liquidez_declarada": null,
+      "cartera": {"periodo": "2026-06", "posiciones": 464, "aum_mm_clp": 293200,
+                  "mayor_posicion_pct": 4.29, "mayor_emisor": "Banco Itaú Chile", "mayor_emisor_pct": 18.05,
+                  "top5_pct": null, "efectivos": null,
+                  "detalle": "85% bonos bancarios y 15% de empresa; 90% AAA-AA; plazo promedio 2,6 años; TIR 3,1%",
+                  "incorporaciones": 18, "liquidaciones": 13, "look_through": null}
+    },
+    "DP": {
+      "rut": "10145-1", "nombre_completo": "BTG Pactual Liquidez Alternativa Fondo de Inversión",
+      "administradora": "BTG Pactual Chile S.A. AGF", "rut_administradora": "96966250-7",
+      "tipo": "FIRES", "tipo_fondo": "Rescatable", "inversionista": "Público General",
+      "inicio_operaciones": "2021-10-04", "fecha_reglamento": "2026-01-15", "vigencia": "Vigente",
+      "liquidez_declarada": "Rescatable - Semanal",
+      "cartera": {"periodo": "2026-06", "posiciones": 1, "aum_mm_clp": 206966,
+                  "mayor_posicion_pct": 99.98, "mayor_emisor": "FIP Facturas (fondo de inversión privado)",
+                  "mayor_emisor_pct": 99.98, "top5_pct": 99.98, "efectivos": 1.0,
+                  "detalle": "99,98% cuotas de un fondo de inversión privado de facturas",
+                  "incorporaciones": 0, "liquidaciones": 0,
+                  "look_through": "Fondo de fondo: el riesgo real está en la cartera del FIP, que no se informa en la CMF"}
+    },
+    "RVL": {
+      "rut": "9194-4", "nombre_completo": "Fondo de Inversión Falcom Tactical Chilean Equities",
+      "administradora": "Falcom AGF S.A.", "rut_administradora": "76507811-3",
+      "tipo": "FIRES", "tipo_fondo": "Rescatable", "inversionista": "Público General",
+      "inicio_operaciones": "2015-07-01", "fecha_reglamento": "2023-01-11", "vigencia": "Vigente",
+      "liquidez_declarada": "Rescatable - Diario",
+      "cartera": {"periodo": "2026-06", "posiciones": 58, "aum_mm_clp": 545463,
+                  "mayor_posicion_pct": 13.15, "mayor_emisor": "Banco Santander-Chile", "mayor_emisor_pct": 13.15,
+                  "top5_pct": 51.78, "top10_pct": 73.81, "efectivos": 13.98,
+                  "detalle": "98% acciones chilenas; 32% banca y financiero; 28 emisores",
+                  "incorporaciones": 5, "liquidaciones": 6, "look_through": null}
+    },
+    "RVG": {
+      "rut": "9706-3", "nombre_completo": "Fondo de Inversión ETF Singular Global Equities",
+      "administradora": "Singular Asset Management AGF S.A.", "rut_administradora": "76917333-1",
+      "tipo": "FIRES", "tipo_fondo": "Rescatable", "inversionista": "Público General",
+      "inicio_operaciones": "2019-01-22", "fecha_reglamento": "2024-12-16", "vigencia": "Vigente",
+      "liquidez_declarada": "Rescatable - Diario",
+      "cartera": {"periodo": "2026-06", "posiciones": 7, "aum_mm_clp": 226174,
+                  "mayor_posicion_pct": 93.25, "mayor_emisor": "Vanguard Total World Stock ETF (VT)",
+                  "mayor_emisor_pct": 93.25, "top5_pct": 99.20, "efectivos": null,
+                  "detalle": "100% ETF extranjeros; 93% en un ETF global diversificado (VT)",
+                  "incorporaciones": 0, "liquidaciones": 0,
+                  "look_through": "Fondo de ETF: la concentración en un vehículo no es concentración de emisores (VT replica un índice global)"}
+    }
+  }
+}

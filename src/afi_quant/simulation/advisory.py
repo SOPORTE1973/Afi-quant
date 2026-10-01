@@ -87,11 +87,11 @@ def closing_advisory(sim) -> dict:
         proxy_rets_month.append(r)
         bench_index.append(NavPoint(row.fecha, bench_index[-1].valor_cuota * (1 + r)))
     bench_series = AdjustedSeries(
-        rut="POLICY-SIM-001", serie="SAA", nemotecnico="POLICY-SIM-001", points=bench_index,
+        rut=f"POLICY-{sim.client.client_id}", serie="SAA", nemotecnico=f"POLICY-{sim.client.client_id}", points=bench_index,
         source="Policy benchmark: SAA vigente de cada mes sobre proxies pasivos (precios reales)",
     )
     index_series = AdjustedSeries(
-        rut="SIM-001", serie="CARTERA", nemotecnico="CARTERA-SIM-001",
+        rut=sim.client.client_id, serie="CARTERA", nemotecnico=f"CARTERA-{sim.client.client_id}",
         points=[NavPoint(r.fecha, r.indice_twr) for r in sim.rows],
         source="Índice TWR de la cartera simulada (precios reales, cliente ficticio)",
     )
@@ -111,7 +111,7 @@ def closing_advisory(sim) -> dict:
     peso_ilq = sum(w for k, w in weights.items() if universe[k].dias_liquidez > 90)
 
     portfolio_profile = ComparableProfile(
-        "Cartera SIM-001", "portafolio", objetivo=PORTFOLIO_OBJECTIVE,
+        f"Cartera {sim.client.client_id}", "portafolio", objetivo=PORTFOLIO_OBJECTIVE,
         composicion=_by_class(weights, universe), volatilidad=_vol(port_hist[last36]), moneda="CLP",
         peso_fuera_0_3m=peso_ilq, horizonte=PORTFOLIO_HORIZON, costos="neto",
         restricciones=PORTFOLIO_RESTRICTIONS,
@@ -274,6 +274,10 @@ def closing_advisory(sim) -> dict:
             ("ES 95% 1 mes (histórico)", es95, lim.es95_1m_max_pct),
             ("Máxima caída realizada", -risk["max_drawdown"], lim.drawdown_tolerado_pct),
         ):
+            if limit is None:
+                checks.append({"metrica": name, "valor": value, "limite": None,
+                               "estado": "sin límite en el IPS: no se puede evaluar (D8)"})
+                continue
             checks.append({"metrica": name, "valor": value, "limite": limit / 100,
                            "estado": "dentro" if value <= limit / 100 else "excede: alerta sin ajuste automático"})
     limites = {"controles": checks, "muestra_meses": len(port_hist_all), "obs_cola_95": tail,

@@ -508,7 +508,7 @@ def _month_ends(points):
     return month_end_points(points)
 
 
-def run_lifecycle(client=None, universe=None, params=None, onboarding=None) -> LifecycleResult:
+def run_lifecycle(client=None, universe=None, params=None, onboarding=None, ips=None) -> LifecycleResult:
     from afi_quant.portfolio.universe import default_universe
     from afi_quant.simulation.parameters import (
         ONBOARDING_DATE, SCENARIO_LIBRARY, simulation_registry, synthetic_client, synthetic_ips,
@@ -519,6 +519,6 @@ def run_lifecycle(client=None, universe=None, params=None, onboarding=None) -> L
         universe or default_universe(),
         params or simulation_registry(),
         onboarding or ONBOARDING_DATE,
-        ips=synthetic_ips(),
+        ips=ips or synthetic_ips(),
         scenario_library=SCENARIO_LIBRARY,
     ).run()
