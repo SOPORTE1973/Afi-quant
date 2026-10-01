@@ -40,6 +40,7 @@ from afi_quant.engines.liquidity import LiquidityEngine
 from afi_quant.engines.performance import PerformanceEngine
 from afi_quant.engines.risk import RiskEngine
 from afi_quant.engines.scenario import ScenarioEngine
+from afi_quant.flows.construction import construction_alternatives
 from afi_quant.flows.rebalancing import rebalancing_flow
 from afi_quant.orchestrator.states import DecisionCaseState, RecommendationLevel
 from afi_quant.pipeline import run_case
@@ -181,6 +182,7 @@ class LifecycleSimulation:
             "vehicle_universe": self.universe,
             "as_of_date": as_of,
             "parameter_registry": self.params,
+            "ips": self.ips,
         }
         data.update(extra)
         return data
@@ -204,7 +206,37 @@ class LifecycleSimulation:
             ),
             trigger=trigger, client_ref=self.client.client_id,
         )
+        con = case.engine_results["construction"]
+        if not con.insufficient_data:
+            case.alternatives = self.construction_alternatives(as_of, con.values["sleeves"], sleeve_values, cma)
         return case, cma
+
+    def adverse_shocks(self) -> dict[str, float]:
+        if not self.scenario_library:
+            return {k: 0.0 for k in self.universe}
+        shocks = self.scenario_library["escenarios"]["adverso"]["shocks"]
+        return {k: shocks[v.subclase] / 100 for k, v in self.universe.items()}
+
+    def construction_alternatives(self, as_of, sleeves, sleeve_values, cma) -> dict:
+        """Carteras alternativas por meta (DF v1.1 caso 3) — el WM simulado acepta la recomendada."""
+        p = self.params_value
+        max_w = float(p("max_weight_per_vehicle_pct")) / 100
+        history = monthly_history(self.universe, as_of)
+        out = {}
+        for g, s in sleeves.items():
+            if s["horizonte"] == "corto":
+                keys = [k for k, v in self.universe.items() if v.subclase == p("short_horizon_eligible_subclass")]
+                caps = {k: 1.0 for k in keys}
+            else:
+                keys, caps = list(self.universe), {k: max_w for k in self.universe}
+            out[g] = construction_alternatives(
+                goal=self.client.goal(g), sleeve=s, keys=keys, caps=caps, cma=cma,
+                delta=float(p("risk_aversion_delta")), adverse_shocks=self.adverse_shocks(),
+                history=history, n_sims=int(p("mc_simulations")), block=int(p("mc_block_months")),
+                value=sleeve_values[g], contribution=self.contributions.get(g, 0.0), as_of=as_of,
+                missing_data=["CMAs institucionales del Comité", "costos y comisiones por vehículo"],
+            )
+        return out
 
     def params_value(self, name):
         from afi_quant.registries.parameter_registry import get_parameter
@@ -417,7 +449,8 @@ class LifecycleSimulation:
         decisions = {}
         for g in material:
             f = flows[g]
-            choice = f["recomendada"]
+            # WM simulado: acepta la recomendación de Nivel 3; sin ella, no opera.
+            choice = f["recomendada"] or "A"
             alt = f["alternativas"][choice]
             self.buy(g, alt["operaciones"], ym)
             traded += alt["rotacion_clp"]
@@ -425,9 +458,10 @@ class LifecycleSimulation:
             self.record(as_of, "rebalanceo", alt["rotacion_clp"], g, False,
                         {"alternativa": choice, "operaciones": alt["operaciones"]})
         if material:
-            rcase.recommendation_level = RecommendationLevel.NIVEL_3
+            rcase.recommendation_level = RecommendationLevel(min(flows[g]["nivel"] for g in material))
             rcase.wm_decision = {"decision": decisions, "simulada": True,
-                                 "justificacion": "WM simulado: acepta la alternativa recomendada."}
+                                 "justificacion": ("WM simulado: acepta la alternativa recomendada; sin "
+                                                   "recomendación de Nivel 3, mantiene la cartera.")}
             rcase.state = DecisionCaseState.DECIDED
             rcase._log(f"Decisión del WM (simulada): {decisions}")
 
@@ -446,14 +480,15 @@ class LifecycleSimulation:
         if material:
             g = max(material, key=lambda x: abs(flows[x]["mayor_desvio"]))
             f = flows[g]
+            alts = f["alternativas"]
             ctx.update({
-                "recomendada": f["recomendada"], "nombre_recomendada": f["alternativas"][f["recomendada"]]["nombre"],
-                "criterio": f["criterio"],
-                "alt_a_vol": f["alternativas"]["A"]["volatilidad_ex_ante"],
-                "alt_b_vol": f["alternativas"]["B"]["volatilidad_ex_ante"],
-                "alt_c_vol": f["alternativas"]["C"]["volatilidad_ex_ante"],
-                "alt_b_rot": clp(f["alternativas"]["B"]["rotacion_clp"]),
-                "alt_c_rot": clp(f["alternativas"]["C"]["rotacion_clp"]),
+                "alternativas_texto": "; ".join(
+                    f"{k} {a['nombre'].lower()} (vol {a['volatilidad_ex_ante']:.1%}"
+                    + (f", rota {clp(a['rotacion_clp'])} CLP)" if a["rotacion_clp"] else ")")
+                    for k, a in alts.items()),
+                "descartadas": "; ".join(f"{k} {m}" for k, m in f.get("descartadas", {}).items()),
+                "n_tradeoffs": len(f["tradeoffs"]["tradeoffs"]),
+                "recomendacion": f["recomendacion"] or f["motivo_nivel"],
             })
         self.log(as_of, "revision", title, ctx, rcase, {
             "monto_operado": traded,

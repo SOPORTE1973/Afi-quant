@@ -9,7 +9,9 @@ Risk, Liquidity y Scenario:
     → Risk Impact → Liquidity Impact → Cost Impact → Scenarios
     → Alternatives → Analytical Recommendation → Wealth Manager
 
-Genera exactamente tres alternativas (DF 6.8 / D1):
+Alternativas (DF v1.1 4.2): el número no es fijo. Para rebalanceo el patrón
+típico es A/B/C, pero una alternativa que coincide con otra no se presenta
+dos veces, y si ninguna es evaluable se declara. Candidatas:
   A — No rebalancear.
   B — Rebalanceo parcial: cada peso fuera de banda vuelve a la mitad de
       la banda (objetivo ± banda/2); el resto se reparte en proporción a lo
@@ -23,9 +25,12 @@ siempre, aunque no sea admisible, porque "no actuar" es una opción que el
 WM debe ver con sus consecuencias.
   C — Rebalanceo completo al objetivo.
 
+Después de calcular las alternativas, Trade-off Detection (M12) muestra qué
+mejora y qué empeora cada una frente a no actuar, sin ponderar, y la
+Recommendation Layer (M14) decide si la evidencia alcanza el Nivel 3.
+
 El sistema NO ejecuta operaciones (QM XIII: "posición institucional
-permanente"). La recomendación analítica es condicional (ESFS 15.5) y
-declara el nivel alcanzado y por qué no uno mayor (ESFS 15.2).
+permanente") ni asigna quién decide (DF v1.1 3.1).
 """
 
 from __future__ import annotations
@@ -33,12 +38,13 @@ from __future__ import annotations
 import math
 
 from afi_quant.clients.profile import months_between
+from afi_quant.decision.recommendation import recommendation_layer
+from afi_quant.decision.tradeoff import REBALANCING_DIMENSIONS, detect_tradeoffs
+from afi_quant.engines.diversification import hhi
 from afi_quant.engines.goals import bootstrap_paths, recentered_returns
 
 ALTERNATIVE_NAMES = {"A": "No rebalancear", "B": "Rebalanceo parcial (a la mitad de la banda)",
                      "C": "Rebalanceo completo al objetivo"}
-LEVEL3_ELEMENTS = ("criterios", "inputs", "resultados", "supuestos", "restricciones",
-                   "escenarios", "sensibilidad", "datos_faltantes", "limitaciones")
 
 
 def drift(values: dict[str, float], target: dict[str, float]) -> dict[str, float]:
@@ -68,7 +74,9 @@ def partial_weights(current_w: dict[str, float], target: dict[str, float], band:
 def rebalancing_flow(*, goal, values: dict[str, float], target: dict[str, float], band: float,
                      cma, universe, adverse_shocks: dict[str, float], history, n_sims: int,
                      block: int, contribution: float, as_of, missing_data: list[str],
-                     vol_cap: float | None = None, band_sensitivity: float = 0.02) -> dict:
+                     vol_cap: float | None = None, band_sensitivity: float = 0.02,
+                     blocking_missing: list[str] | None = None,
+                     tradeoff_threshold: float | None = None) -> dict:
     total = sum(values.values())
     current_w = {k: v / total for k, v in values.items()}
     d = drift(values, target)
@@ -87,6 +95,11 @@ def rebalancing_flow(*, goal, values: dict[str, float], target: dict[str, float]
     returns = recentered_returns(history, cma)
     weights_by_alt = {"A": current_w, "B": partial_weights(current_w, target, band / 2),
                       "C": dict(target)}
+    out["descartadas"] = {}
+    same = lambda a, b: all(abs(a.get(k, 0.0) - b.get(k, 0.0)) < 1e-9 for k in set(a) | set(b))
+    if same(weights_by_alt["B"], weights_by_alt["C"]):
+        del weights_by_alt["B"]
+        out["descartadas"]["B"] = "coincide con el rebalanceo completo: no es una alternativa distinta"
     eligible = {k for k, w in target.items() if w > 0}
     for key, w in weights_by_alt.items():
         trades = {k: w.get(k, 0.0) * total - values.get(k, 0.0) for k in set(w) | set(values)}
@@ -103,6 +116,7 @@ def rebalancing_flow(*, goal, values: dict[str, float], target: dict[str, float]
             "rotacion_clp": sum(abs(v) for v in trades.values()) / 2,
             "mayor_desvio_restante": remaining,
             "volatilidad_ex_ante": vol,
+            "hhi": hhi({k: x for k, x in w.items() if x}),
             "retorno_escenario_adverso": adverse,
             "liquidez": ("sin operaciones" if not trades else
                          f"ejecutable en hasta {slowest} días hábiles (vende {', '.join(sorted(sells))})"),
@@ -133,21 +147,41 @@ def rebalancing_flow(*, goal, values: dict[str, float], target: dict[str, float]
         for b in (max(0.0, band - band_sensitivity), band + band_sensitivity)
     }
 
-    # Recomendación analítica: criterio declarado, determinístico.
+    # M12 — Trade-off Detection frente a no actuar
+    out["tradeoffs"] = detect_tradeoffs(
+        out["alternativas"], "A", REBALANCING_DIMENSIONS, threshold=tradeoff_threshold,
+        scenarios="retorno de cada alternativa en el escenario adverso del Comité (simulación)",
+        sensitivity=out["sensibilidad"],
+    )
+
+    # M14 — Recommendation Layer
     criterion = ("menor rotación entre las alternativas admisibles que dejan todos los pesos "
                  "dentro de la banda institucional")
-    within = [k for k, a in out["alternativas"].items()
-              if a["admisible"] and a["mayor_desvio_restante"] <= band + 1e-9]
-    chosen = min(within, key=lambda k: out["alternativas"][k]["rotacion_clp"])
-    out["criterio"] = criterion
-    out["recomendada"] = chosen
-    out["datos_faltantes"] = missing_data
-    out["nivel"] = 3
-    out["elementos_nivel_3"] = {e: True for e in LEVEL3_ELEMENTS}
-    out["recomendacion"] = (
-        f"Bajo el criterio de {criterion} y los supuestos declarados (CMA de simulación, banda "
-        f"{band:.0%}), la alternativa {chosen} ({ALTERNATIVE_NAMES[chosen]}) presenta el resultado "
-        "más consistente con los objetivos analizados. No considera costos de transacción ni "
-        "impacto tributario, que no están disponibles."
+    alts = out["alternativas"]
+    candidates = [k for k, a in alts.items() if a["admisible"] and a["mayor_desvio_restante"] <= band + 1e-9]
+    n_tradeoffs = len(out["tradeoffs"]["tradeoffs"])
+    elements = {
+        "criterios": criterion,
+        "inputs": (f"valor de la meta {total:,.0f} CLP; pesos actuales y objetivo de {len(target)} "
+                   f"vehículos; CMA al {as_of.isoformat()}; {n_sims} trayectorias"),
+        "resultados": {k: {"rotacion_clp": a["rotacion_clp"], "volatilidad_ex_ante": a["volatilidad_ex_ante"],
+                           "prob_exito": a.get("prob_exito")} for k, a in alts.items()},
+        "supuestos": f"CMA de simulación; banda {band:.0%}; bootstrap por bloques de {block} meses",
+        "restricciones": (f"vehículos elegibles de la meta; tope de volatilidad {vol_cap:.1%}"
+                          if vol_cap is not None else "vehículos elegibles de la meta"),
+        "escenarios": {k: a["retorno_escenario_adverso"] for k, a in alts.items()},
+        "sensibilidad": out["sensibilidad"],
+        "datos_faltantes": missing_data,
+        "limitaciones": (f"{n_tradeoffs} trade-off(s) entregados al WM sin ponderar; sin costos de "
+                         "transacción ni impacto tributario"),
+    }
+    rec = recommendation_layer(
+        alternatives=alts, candidates=candidates, criterion=criterion,
+        choose=lambda ks: min(ks, key=lambda k: alts[k]["rotacion_clp"]),
+        elements=elements, blocking_missing=blocking_missing,
     )
+    out.update(rec)
+    out["datos_faltantes"] = missing_data
+    if rec["recomendacion"] and rec["nivel"] == 3:
+        out["recomendacion"] += " No considera costos de transacción ni impacto tributario, que no están disponibles."
     return out

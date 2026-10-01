@@ -7,11 +7,15 @@ de información (DF 4-5) y flujos del cliente (QM IV).
 
 from __future__ import annotations
 
-from datetime import date
+import random
+from datetime import date, timedelta
 
 import pytest
 
 from afi_quant.clients.ips import evaluate_catalog
+from afi_quant.data.quality import PARAMS as QUALITY_PARAMS, check_series
+from afi_quant.decision.recommendation import LEVEL3_ELEMENTS, NO_ALTERNATIVES, recommendation_layer
+from afi_quant.decision.tradeoff import REBALANCING_DIMENSIONS, detect_tradeoffs
 from afi_quant.data.fixtures import singular_global_equities
 from afi_quant.engines.eligibility import ComparableProfile, check_eligibility
 from afi_quant.engines.relative import relative_metrics, te_decomposition
@@ -111,16 +115,92 @@ def test_partial_weights_sum_to_one_and_stay_in_band():
     assert all(abs(w[k] - target[k]) <= 0.05 + 1e-9 for k in target)
 
 
-def test_every_rebalance_is_a_wm_decision_with_three_alternatives(lifecycle):
+def test_every_rebalance_is_a_wm_decision_with_level3_evidence(lifecycle):
     rebalances = [e for e in lifecycle.ledger if e["tipo"] == "rebalanceo"]
     assert rebalances
     decided = [c for c in lifecycle.cases if c.wm_decision]
     assert decided and all(c.wm_decision["simulada"] for c in decided)
     for c in decided:
         for flow in c.alternatives.values():
-            assert set(flow["alternativas"]) == {"A", "B", "C"}
+            # DF v1.1 4.2: número variable, "no actuar" siempre visible
+            assert "A" in flow["alternativas"] and set(flow["alternativas"]) <= {"A", "B", "C"}
+            assert flow["nivel"] == 3
             chosen = flow["alternativas"][flow["recomendada"]]
             assert chosen["admisible"]
+            assert all(flow["elementos_nivel_3"][e] for e in LEVEL3_ELEMENTS)
+            assert "regla" in flow["tradeoffs"]
+
+
+def test_rebalance_tradeoffs_show_both_directions(lifecycle):
+    jan = next(e for e in lifecycle.events if e.tipo == "revision" and e.fecha == date(2026, 1, 31))
+    tos = jan.detalle["flujos"]["jubilacion"]["tradeoffs"]["tradeoffs"]
+    assert tos and all(t["mejora"] and t["empeora"] for t in tos)
+    assert all(len(t) >= 9 for t in tos)
+
+
+def test_recommendation_layer_levels():
+    alts = {"A": {"nombre": "a"}, "B": {"nombre": "b"}}
+    full = {e: "x" for e in LEVEL3_ELEMENTS}
+    none = recommendation_layer(alternatives={}, candidates=[], criterion="c", choose=min, elements=full)
+    assert none["nivel"] == 1 and none["recomendacion"] == NO_ALTERNATIVES
+    blocked = recommendation_layer(alternatives=alts, candidates=["B"], criterion="c", choose=min,
+                                   elements=full, blocking_missing=["IPS"])
+    assert blocked["nivel"] == 2 and blocked["recomendada"] is None
+    gap = recommendation_layer(alternatives=alts, candidates=["B"], criterion="c", choose=min,
+                               elements={**full, "sensibilidad": None})
+    assert gap["nivel"] == 2 and "sensibilidad" in gap["motivo_nivel"]
+    ok = recommendation_layer(alternatives=alts, candidates=["B"], criterion="c", choose=min, elements=full)
+    assert ok["nivel"] == 3 and ok["recomendada"] == "B" and "Bajo el criterio" in ok["recomendacion"]
+
+
+def test_tradeoff_detection_does_not_weigh_dimensions():
+    alts = {"A": {"volatilidad_ex_ante": 0.08, "prob_exito": 0.70, "rotacion_clp": 0},
+            "B": {"volatilidad_ex_ante": 0.06, "prob_exito": 0.65, "rotacion_clp": 5_000_000},
+            "C": {"volatilidad_ex_ante": 0.09, "prob_exito": 0.60, "rotacion_clp": 1_000}}
+    out = detect_tradeoffs(alts, "A", REBALANCING_DIMENSIONS)
+    keys = [t["alternativa"] for t in out["tradeoffs"]]
+    assert keys == ["B"]  # C empeora todo: no es trade-off, es peor
+    t = out["tradeoffs"][0]
+    assert any("Volatilidad" in s for s in t["mejora"]) and any("Probabilidad" in s for s in t["empeora"])
+    assert out["umbral"] is None and "OQ4" in out["nota"]
+
+
+def test_construction_offers_alternative_portfolios(lifecycle):
+    onb = lifecycle.cases[0].alternatives
+    assert onb["emergencia"]["nivel"] == 1  # un solo vehículo elegible: nada que comparar
+    jub = onb["jubilacion"]
+    assert jub["nivel"] == 3 and jub["recomendada"] == "MVO"
+    assert jub["alternativas"]["MVO"]["pesos"] == lifecycle.onboarding_results["construction"]["sleeves"]["jubilacion"]["pesos"]
+    erc = jub["alternativas"]["ERC"]["contribucion_riesgo"]
+    assert max(erc.values()) - min(erc.values()) < 1e-6
+
+
+def test_reverse_stress_is_linear_in_the_breach_limit(lifecycle):
+    inv = lifecycle.closing_results["scenario"]["inverso"]
+    s = inv["escenario_stress_escalado"]
+    assert s["perdida_escenario"] * s["multiplicador"] == pytest.approx(inv["limite"])
+    rv = inv["renta_variable_en_bloque"]
+    assert rv["exposicion"] * rv["shock_necesario"] == pytest.approx(-inv["limite"])
+
+
+def test_data_quality_flags_reversals_and_stale_runs():
+    class P:
+        def __init__(self, d, v):
+            self.fecha, self.valor_cuota = d, v
+    base = date(2024, 1, 1)
+    rng = random.Random(3)
+    vals, v = [], 100.0
+    for _ in range(120):
+        v *= 1 + rng.gauss(0.0002, 0.001)
+        vals.append(v)
+    vals[90] *= 1.05          # salto que se revierte al día siguiente
+    vals[100:103] = [vals[99]] * 3  # NAV repetido
+    pts = [P(base + timedelta(days=i), x) for i, x in enumerate(vals)]
+    rep = check_series("X", pts, {k: SIMULATION_VALUES[k] for k in QUALITY_PARAMS})
+    assert [o["fecha"] for o in rep.outliers] == [pts[90].fecha]
+    assert rep.stale_runs and rep.stale_runs[0]["n_obs"] >= 3
+    assert rep.estado == "pending_validation"
+    assert check_series("X", pts, {}).no_evaluado == list(QUALITY_PARAMS)
 
 
 def test_glide_path_rejects_partial_alternative_with_ineligible_vehicles(lifecycle):

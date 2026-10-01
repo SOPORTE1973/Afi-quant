@@ -14,6 +14,14 @@ cliente — nunca solo retorno. La moneda es transversal: la cartera es
 100% CLP y el componente FX del fondo global ya viene en su NAV en CLP;
 no se asume cobertura.
 
+Reverse Stress Testing (ADVANCED, QM XI): en vez de preguntar cuánto se
+pierde en un escenario, pregunta qué shock haría falta para "romper" un
+límite. La definición de ruptura es un parámetro (`reverse_stress_breach_limit`;
+ESFS 11.6 la pide explícita). Con "ips_max_drawdown", la ruptura es perder la
+caída máxima que tolera el IPS del cliente. Se informa en tres direcciones:
+el escenario Stress escalado, la renta variable en bloque y cada fondo solo.
+La relación es lineal (pérdida = Σ peso × shock), sin modelo nuevo.
+
 Un vehículo sin historia en un episodio no se omite en silencio: se usa
 el sustituto declarado (deuda privada -> money market, igual que en el
 policy benchmark) o, si tampoco hay, 0% con la cobertura informada.
@@ -99,7 +107,10 @@ class ScenarioEngine:
             res["cobertura_observada"] = sum(weights[k] for k, r in rets.items() if r["fuente"] == "observado")
             historical[key] = res
 
+        reverse = self._reverse_stress(case, weights, total, library, universe)
+
         return EngineResult(engine_name=self.name, values={
+            "inverso": reverse,
             "biblioteca_version": library["version"],
             "biblioteca_autor": library["autor"],
             "valor_base": total,
@@ -108,6 +119,42 @@ class ScenarioEngine:
             "historicos": historical,
             "moneda": "Cartera 100% CLP; el componente FX del fondo global viene en su NAV en CLP, sin cobertura asumida.",
         })
+
+    def _reverse_stress(self, case, weights, total, library, universe) -> dict:
+        breach = parameter_value(case, "reverse_stress_breach_limit")
+        ips = case.input_data.get("ips")
+        if breach is None:
+            return {"no_calculado": "Sin definición de 'ruptura' en el Parameter Registry (ESFS 11.6)."}
+        if breach != "ips_max_drawdown":
+            return {"no_calculado": f"Definición de ruptura no soportada: {breach}."}
+        tol_pct = ips.limites_riesgo.drawdown_tolerado_pct if ips else None
+        if tol_pct is None:
+            return {"no_calculado": "El IPS no declara caída máxima tolerada: no hay límite que romper."}
+        tol = tol_pct / 100
+
+        def needed(exposure: float) -> dict:
+            shock = -tol / exposure if exposure > 0 else None
+            return {"exposicion": exposure, "shock_necesario": shock,
+                    "posible": shock is not None and shock >= -1.0}
+
+        stress = library["escenarios"].get("stress")
+        scaled = None
+        if stress:
+            loss = -sum(w * stress["shocks"][universe[k].subclase] / 100 for k, w in weights.items())
+            mult = tol / loss if loss > 0 else None
+            scaled = {"perdida_escenario": loss, "multiplicador": mult,
+                      "shocks_en_ruptura": ({s: v * mult for s, v in stress["shocks"].items()}
+                                            if mult else None)}
+        equity = sum(w for k, w in weights.items() if universe[k].clase_activo == "Renta Variable")
+        return {
+            "definicion": f"pérdida igual a la caída máxima tolerada en el IPS ({tol:.0%})",
+            "limite": tol, "perdida_clp": tol * total,
+            "escenario_stress_escalado": scaled,
+            "renta_variable_en_bloque": needed(equity),
+            "por_fondo": {k: needed(w) for k, w in weights.items()},
+            "nota": ("Lineal y sin correlaciones: cada dirección supone que solo se mueve lo indicado. "
+                     "Un shock 'no posible' exige perder más de 100% del fondo."),
+        }
 
     def _assess(self, nombre, shocks, sources, suspended, ctx, base_var) -> dict:
         weights, values, total = ctx["weights"], ctx["values"], ctx["total"]

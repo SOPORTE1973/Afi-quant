@@ -22,6 +22,7 @@ import statistics
 from datetime import date
 
 from afi_quant.clients.ips import evaluate_catalog
+from afi_quant.data.quality import PARAMS as QUALITY_PARAMS, check_series, exclusion_impact
 from afi_quant.engines.cma import build_cma, monthly_history
 from afi_quant.engines.eligibility import ComparableProfile
 from afi_quant.engines.performance import twr_with_flows, xirr
@@ -312,6 +313,7 @@ def closing_advisory(sim) -> dict:
     }, case)
 
     advisory = {
+        "calidad_datos": data_quality(sim, universe, as_of),
         "catalogo": catalogo,
         "rentabilidad_activos": rent,
         "referencias": referencias,
@@ -326,6 +328,34 @@ def closing_advisory(sim) -> dict:
                                                 "subestimadas (QM X). Concentración en un solo emisor.")}},
     }
     return {"results": results, "summary": summary, "advisory": advisory}
+
+
+def data_quality(sim, universe, as_of: date) -> dict:
+    """
+    Controles de ESFS 8.4 sobre cada serie usada. Lo marcado queda en una cola
+    de validación con el impacto de excluirlo en la ventana de 36 meses: el
+    sistema no lo excluye ni lo acepta por su cuenta; lo valida una persona
+    contra la administradora o el custodio.
+    """
+    params = {p: sim.params_value(p) for p in QUALITY_PARAMS}
+    start = date(as_of.year - 3, as_of.month, 1)
+    series = {k: v.series.points for k, v in universe.items()}
+    series["IPSA"] = policy_benchmark_proxies()["RVL"].series.points
+    out = {}
+    for k, pts in series.items():
+        pts = [p for p in pts if p.fecha <= as_of]
+        rep = check_series(k, pts, params)
+        flagged = [o["fecha"] for o in rep.outliers]
+        out[k] = {
+            "estado": rep.estado, "n_obs": rep.n_obs, "desde": rep.desde, "hasta": rep.hasta,
+            "outliers": rep.outliers, "stale": rep.stale_runs, "gaps": rep.gaps,
+            "no_evaluado": rep.no_evaluado,
+            "impacto_36m": exclusion_impact(pts, flagged, start, as_of) if flagged else None,
+        }
+    return {"series": out, "parametros": params,
+            "regla": ("ESFS 8.4: un dato sospechoso se excluye hasta validarlo contra fuente "
+                      "secundaria. Aquí no hay fuente secundaria: los casos quedan en la cola de "
+                      "validación con el impacto de excluirlos, para que decida una persona.")}
 
 
 # Regla fija de lectura TWR vs XIRR (QM IV: "así gestionamos tu dinero" vs "así te fue a ti").

@@ -356,6 +356,59 @@ def _seed_parameters() -> list[Parameter]:
             unit="meses",
             source="[QM Parte XXII, III.0 Rev.6 — Block Bootstrap]",
         ),
+        Parameter(
+            name="reverse_stress_breach_limit",
+            category="Parámetros de escenarios y stress testing",
+            description="Qué cuenta como 'ruptura' en el Reverse Stress Testing (p. ej. la caída "
+                        "máxima tolerada del IPS). " + _PROPOSAL_NOTE,
+            source="[QM Parte XI — Reverse Stress Testing, ADVANCED], ESFS 11.6",
+        ),
+        Parameter(
+            name="tradeoff_materiality_threshold",
+            category="Bandas y umbrales de rebalanceo",
+            description="Magnitud mínima para que un conflicto entre motores active el Trade-Off "
+                        "Framework. Sin valor, se muestran todos los conflictos. " + _PROPOSAL_NOTE,
+            source="[DF 4.3, 8.3 OQ4]",
+        ),
+        # Calidad de datos (ESFS 8.4; umbrales abiertos en ESFS-09). Van en "Reglas de
+        # escalamiento" porque un dato marcado escala a validación humana; ESFS 8.6
+        # exige seis categorías y no se crea una séptima.
+        Parameter(
+            name="stale_nav_run_obs",
+            category="Reglas de escalamiento",
+            description="Observaciones consecutivas con NAV idéntico a partir de las cuales se "
+                        "marca precio desactualizado (stale). " + _PROPOSAL_NOTE,
+            source="ESFS 8.4, ESFS-09, [QM XVII]",
+        ),
+        Parameter(
+            name="outlier_return_mad_multiple",
+            category="Reglas de escalamiento",
+            description="Múltiplo de la desviación robusta (MAD) reciente a partir del cual un "
+                        "salto diario es candidato a error de carga. " + _PROPOSAL_NOTE,
+            source="ESFS 8.4, ESFS-09, [QM XVII]",
+        ),
+        Parameter(
+            name="outlier_reversal_ratio",
+            category="Reglas de escalamiento",
+            description="Fracción del salto que debe revertirse al día siguiente para marcarlo "
+                        "(firma de error de carga). " + _PROPOSAL_NOTE,
+            source="ESFS 8.4, ESFS-09",
+        ),
+        Parameter(
+            name="outlier_scale_window_obs",
+            category="Reglas de escalamiento",
+            description="Observaciones previas con que se mide la desviación robusta de la "
+                        "serie. " + _PROPOSAL_NOTE,
+            source="ESFS 8.4, ESFS-09",
+        ),
+        Parameter(
+            name="nav_gap_max_days",
+            category="Reglas de escalamiento",
+            description="Días corridos sin NAV a partir de los cuales se marca un vacío de "
+                        "datos. " + _PROPOSAL_NOTE,
+            unit="días",
+            source="ESFS 8.4, ESFS-09",
+        ),
     ]
 
 

@@ -34,12 +34,13 @@ LIFECYCLE_RULES = [
     ExplanationRule(
         "revision_rebalanceo", lambda c: c.get("evento") == "revision" and c.get("rebalanceadas"),
         "Revisión trimestral: {rebalanceadas} {verbo} la banda de {banda:.0%} (mayor desvío "
-        "{mayor_desvio:+.1%} en {mayor_desvio_vehiculo}). Alternativas para {meta_detalle}: A no "
-        "rebalancear (vol {alt_a_vol:.1%}), B parcial a la mitad de la banda (vol {alt_b_vol:.1%}, rota "
-        "{alt_b_rot} CLP), C completo (vol {alt_c_vol:.1%}, rota {alt_c_rot} CLP). Bajo el criterio de "
-        "{criterio}, la alternativa {recomendada} ({nombre_recomendada}) es la más consistente con los "
-        "objetivos analizados. El WM (simulado) la aceptó: se movieron {monto_operado} CLP en total. "
-        "Sin dato de costos de transacción ni impacto tributario.",
+        "{mayor_desvio:+.1%} en {mayor_desvio_vehiculo}). Alternativas para {meta_detalle}: "
+        "{alternativas_texto}. Trade-offs entregados al WM sin ponderar: {n_tradeoffs}. "
+        "{recomendacion} El WM (simulado) decidió: se movieron {monto_operado} CLP en total.",
+    ),
+    ExplanationRule(
+        "revision_descartadas", lambda c: c.get("evento") == "revision" and c.get("descartadas"),
+        "No se presenta como alternativa: {descartadas}.",
     ),
     ExplanationRule(
         "cambio_horizonte", _is("cambio_horizonte"),

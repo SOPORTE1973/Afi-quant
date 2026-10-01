@@ -43,6 +43,17 @@ SIMULATION_VALUES: dict[str, float | str | dict] = {
     "mc_simulations": 5000,
     "mc_block_months": 6,
     "downside_deviation_mar_pct": 0,
+    # Calidad de datos (ESFS-09 abierto). Un salto ≥ 10 desviaciones robustas que
+    # se revierte en ≥ 70% al día siguiente es candidato a error de carga.
+    "stale_nav_run_obs": 3,
+    "outlier_return_mad_multiple": 10,
+    "outlier_reversal_ratio": 0.7,
+    "outlier_scale_window_obs": 63,
+    "nav_gap_max_days": 7,
+    # Reverse stress: la ruptura es la caída máxima que tolera el IPS del cliente.
+    "reverse_stress_breach_limit": "ips_max_drawdown",
+    # tradeoff_materiality_threshold queda sin valor a propósito (DF 8.3 OQ4):
+    # sin evidencia operativa se muestran todos los conflictos.
     # Benchmark Eligibility Framework: D10 (QM XVIII) nombra como críticas moneda,
     # liquidez y restricciones regulatorias. Qué hacer con el estado "parcial" es
     # OPEN ISSUE ESFS-14: en la simulación, parcial permite comparar con advertencia.
