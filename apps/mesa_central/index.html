@@ -84,8 +84,8 @@ main { padding: 24px 32px 64px; min-width: 0; display: grid; gap: 24px; align-co
 .tile > .th { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; align-items: center; }
 .g2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
 .g3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px; background: var(--border); }
-.kpi { background: var(--layer); padding: 16px; display: grid; gap: 4px; align-content: start; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px; }
+.kpi { background: var(--layer); padding: 16px; display: grid; gap: 4px; align-content: start; box-shadow: 0 0 0 1px var(--border); }
 .kpi .v { font-family: var(--mono); font-size: 28px; line-height: 36px; font-weight: 400; letter-spacing: 0; }
 .kpi .v.sm { font-size: 20px; line-height: 28px; }
 
@@ -266,6 +266,7 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .present .pnav button { background: #393939; color: #fff; border: 0; height: 32px; padding: 0 12px; cursor: pointer; }
 
 @media (max-width: 900px) {
+  .cr-main { grid-template-columns: 1fr !important; }
   .hdr .menu { display: inline-grid; place-items: center; }
   .shell { grid-template-columns: 1fr; }
   .snav { position: fixed; top: 48px; left: 0; bottom: 0; width: 256px; z-index: 30; height: auto; transform: translateX(-100%); transition: transform .15s; }
@@ -304,4 +305,5 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 <div class="present" id="present" hidden><div id="present-slide"></div><div class="pnav"><button id="pp">Anterior</button><span id="pn"></span><button id="pnx">Siguiente</button><button id="px">Salir</button></div></div>
 <script src="app.js"></script>
 <script src="client.js"></script>
+<script src="crisis.js"></script>
 <script src="pres.js"></script>

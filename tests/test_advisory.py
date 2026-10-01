@@ -19,7 +19,7 @@ from afi_quant.decision.tradeoff import REBALANCING_DIMENSIONS, detect_tradeoffs
 from afi_quant.data.fixtures import singular_global_equities
 from afi_quant.engines.eligibility import ComparableProfile, check_eligibility
 from afi_quant.engines.relative import relative_metrics, te_decomposition
-from afi_quant.engines.scenario import episode_returns
+from afi_quant.engines.scenario import episode_path, episode_returns
 from afi_quant.flows.rebalancing import partial_weights
 from afi_quant.portfolio.analytics import multi_period_returns
 from afi_quant.portfolio.universe import default_universe
@@ -258,3 +258,22 @@ def test_multi_period_returns_match_connector():
     # Publicado por el conector para ETF Singular Global Equities al 2026-09-29: y1 = 17,0745%.
     mp = multi_period_returns(singular_global_equities(), date(2026, 9, 29))
     assert mp["1a"] * 100 == pytest.approx(17.074533879455124, abs=1e-6)
+
+
+def test_crisis_path_ends_where_the_point_to_point_episode_does():
+    u = default_universe()
+    vals = {"MM": 16e6, "DP": 62e6, "RVL": 38e6, "RVG": 56e6}
+    d0, d1 = date(2020, 2, 21), date(2020, 3, 23)
+    path = episode_path(u, vals, d0, d1)
+    rets = episode_returns({k: u[k] for k in vals}, d0, d1)
+    point = sum(v * (1 + rets[k]["retorno"]) for k, v in vals.items()) / sum(vals.values()) - 1
+    assert path["retorno_al_fin"] == pytest.approx(point)
+    assert path["caida_maxima"] <= path["retorno_al_fin"]
+    assert path["fecha_recuperacion"] is None or path["fecha_recuperacion"] > path["fecha_fondo"]
+    assert path["fuentes"]["DP"] == "sustituto (MM)"
+
+
+def test_crisis_path_declares_flat_when_substitute_has_no_data():
+    u = default_universe()
+    path = episode_path(u, {"MM": 1e6, "DP": 1e6, "RVL": 1e6}, date(2019, 10, 17), date(2019, 11, 14))
+    assert path["fuentes"]["MM"] == "sin dato: plano" and path["fuentes"]["DP"] == "sin dato: plano"

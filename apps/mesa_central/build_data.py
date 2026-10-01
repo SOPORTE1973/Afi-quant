@@ -113,6 +113,22 @@ def construction_moments(r, u, P):
     return out
 
 
+def compact_stress(stress: dict, VEH) -> dict:
+    """La trayectoria diaria de cada episodio va en columnas para no inflar el archivo."""
+    out = dict(stress)
+    out["historicos"] = {}
+    for k, ep in stress["historicos"].items():
+        ep = dict(ep)
+        tr = ep.pop("trayectoria", None)
+        if tr:
+            pts = tr.pop("puntos")
+            held = [v for v in VEH if pts and v in pts[0]["por_vehiculo"]]
+            ep["trayectoria"] = {**tr, "fechas": [p["fecha"] for p in pts], "total": [round(p["total"]) for p in pts],
+                                 "veh": {v: [round(p["por_vehiculo"][v]) for p in pts] for v in held}}
+        out["historicos"][k] = ep
+    return out
+
+
 def client_payload(bc, r, u, prox, P, account):
     c, ips = bc.client, bc.ips
     a, close, s = r.advisory, r.closing_results, r.summary
@@ -198,7 +214,7 @@ def client_payload(bc, r, u, prox, P, account):
         "benchmark": a["benchmark"]["candidatos"],
         "relativo": {"asignacion": {k: v for k, v in rel.get("asignacion_vigente", {}).items() if k != "retornos_mensuales"},
                      "realizado": rel.get("realizado")},
-        "stress": a["stress"], "limites": a["limites_ips"], "liquidez": close["liquidity"],
+        "stress": compact_stress(a["stress"], VEH), "limites": a["limites_ips"], "liquidez": close["liquidity"],
         "metas_cerradas": sorted(x for x in settled if x),
     }
 

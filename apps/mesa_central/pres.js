@@ -9,12 +9,13 @@ const SLIDES = [
   { id: "cartera", t: "Cómo está invertido", d: "Distribución actual y objetivo" },
   { id: "rentabilidad", t: "Rentabilidad frente a su referencia", d: "Cartera frente a su benchmark" },
   { id: "riesgo", t: "Qué pasaría en un mal escenario", d: "Escenarios y episodios históricos" },
+  { id: "crisis", t: "Si se repitiera una crisis", d: "La peor crisis histórica con su cartera actual" },
   { id: "movimientos", t: "Sus aportes y retiros", d: "Flujos y retorno personal" },
   { id: "decisiones", t: "Lo que hicimos en el período", d: "Revisiones y rebalanceos" },
   { id: "proximos", t: "Próximos pasos", d: "Texto que escribe el asesor" },
   { id: "aviso", t: "Supuestos, riesgos y aviso", d: "Cómo se calcularon las cifras", fixed: true },
 ];
-const DEFAULT_ON = ["portada", "resumen", "evolucion", "metas", "cartera", "riesgo", "proximos", "aviso"];
+const DEFAULT_ON = ["portada", "resumen", "evolucion", "metas", "cartera", "riesgo", "crisis", "proximos", "aviso"];
 const PAL = { MM: "6929C4", RF: "1192E8", DP: "005D5D", RVL: "9F1853", RVG: "FA4D56" };
 const pres = { order: [], on: new Set(), idx: 0, notes: "", C: null, client: null };
 
@@ -28,6 +29,8 @@ function deckModel(C) {
     stress: { ...C.stress.hipoteticos, ...C.stress.historicos },
     flujos: C.flujos, rel: C.relativo.realizado, noticias: C.noticias, ts: C.ts,
     faltantes: C.catalogo.filter(r => r.estado === "missing_critical").map(r => r.variable),
+    crisis: Object.values(C.stress.historicos).filter(e => e.trayectoria).sort((a, b) => a.trayectoria.caida_maxima - b.trayectoria.caida_maxima)[0] || null,
+    ddIPS: C.ips.limites.dd,
   };
 }
 function loadSel() {
@@ -59,6 +62,8 @@ function slideHTML(id, c, num, total) {
     case "cartera": return wrap("Cartera", "Cómo está invertido", `<div class="row2"><div>${allocSVG(r.pesos, r.politica)}</div><div style="display:grid;gap:1cqw">${Object.entries(c.sleeves).map(([g, s]) => { const goal = c.metas.find(x => x.key === g); return `<p><b>${esc(goal ? goal.nombre : g)}:</b> ${Object.entries(s.pesos).sort((a, b) => b[1] - a[1]).map(([k, w]) => `${VNAME[k].toLowerCase()} ${pct(w, 0)}`).join(", ")}.</p>`; }).join("")}<p style="color:#525252">Cada meta tiene su propia cartera según su plazo: lo que se necesita pronto va en instrumentos estables; lo de largo plazo puede asumir más variación.</p></div></div>`);
     case "rentabilidad": { const b = c.rel; if (!b) return wrap("Rentabilidad", "Rentabilidad frente a su referencia", "<p>Aún no hay datos suficientes.</p>"); return wrap("Rentabilidad", "Rentabilidad frente a su referencia", tiles([["Su cartera (anual)", pct(b.retorno_portafolio_anual, 1)], ["Su referencia (anual)", pct(b.retorno_benchmark_anual, 1)], ["Diferencia", spct(b.exceso_anual, 1)]]) + `<p>La referencia combina índices con la misma distribución objetivo que su cartera. Entre ${fmonth(b.desde.slice(0, 7))} y ${fmonth(b.hasta.slice(0, 7))} su cartera la superó en ${pct(b.hit_ratio, 0)} de los meses.</p><p style="color:#525252">Todavía no hay 36 meses de historia para medir cuánto se aparta de forma estable de su referencia.</p>${r.meses < 12 ? `<p style="color:#8e6a00">Con menos de 12 meses, las cifras anuales son una extrapolación; la rentabilidad acumulada es ${pct(r.twr, 1)}.</p>` : ""}`); }
     case "riesgo": { const pick = ["adverso", "stress", "covid", "estallido"].filter(k => c.stress[k]).map(k => c.stress[k]); return wrap("Riesgo", "Qué pasaría en un mal escenario", `<div class="row2"><div>${stressSVG(pick)}</div><div style="display:grid;gap:1cqw">${pick.map(s => `<p><b>${esc(s.nombre)}:</b> su cartera ${s.retorno < 0 ? "bajaría" : "subiría"} ${pct(Math.abs(s.retorno), 1)} (${mm(Math.abs(s.pnl_clp))}).</p>`).join("")}<p style="color:#525252">Adverso y Stress son supuestos a 12 meses; los otros repiten lo que ocurrió en esos episodios con su cartera actual.</p></div></div>`); }
+    case "crisis": { const e = c.crisis; if (!e) return wrap("Crisis", "Si se repitiera una crisis", "<p>No hay episodios con datos.</p>"); const t = e.trayectoria;
+      return wrap("Crisis", `Si se repitiera: ${esc(e.nombre)}`, `<div class="row2"><div>${crisisSVG(c)}</div><div style="display:grid;gap:1cqw"><p>Si su cartera de hoy hubiera vivido ${esc(e.nombre)} (${fdate(e.desde)} a ${fdate(e.hasta)}), habría bajado hasta ${pct(-t.caida_maxima, 1)} (${mm(-t.caida_maxima * t.valor_inicial)}) en ${t.dias_hasta_fondo} días.</p><p>${t.fecha_recuperacion ? `Habría recuperado su valor ${t.dias_recuperacion} días después del punto más bajo, sin vender.` : "No habría recuperado su valor dentro del año siguiente."}</p>${c.ddIPS != null ? `<p style="color:#525252">La caída máxima que usted acordó tolerar es ${nf(c.ddIPS)}%: esta crisis ${-t.caida_maxima * 100 > c.ddIPS ? "la superaría" : "quedaría dentro"}.</p>` : ""}<p style="color:#525252">Es la peor de las crisis recientes para esta cartera; no predice la próxima.</p></div></div>`); }
     case "movimientos": return wrap("Flujos", "Sus aportes y retiros", tiles([["Aportes", mm(c.flujos.aportes_externos)], ["Retiros", mm(c.flujos.retiros_externos)], ["Ganancia neta", mm(c.flujos.ganancia_neta)]]) + `<p>La rentabilidad de la cartera (${r.meses >= 12 ? pct(r.twr_anual, 1) + " anual" : pct(r.twr, 1) + " acumulada"}) mide cómo se gestionó el dinero. Su retorno personal (${pct(r.xirr, 1)} anual) incluye además el momento en que usted aportó o retiró.</p>`);
     case "decisiones": { const ns = c.noticias.filter(n => !n.quiet && n.categoria !== "Cierre"); return wrap("Gestión", "Lo que hicimos en el período", `<table><thead><tr><th>Fecha</th><th>Qué</th><th style="text-align:left">Detalle</th></tr></thead><tbody>${ns.slice(-7).map(n => `<tr><td>${fdate(n.fecha)}</td><td>${esc(n.categoria)}</td><td style="text-align:left">${esc(n.titulo)}</td></tr>`).join("")}</tbody></table><p style="color:#525252">Revisamos su cartera ${c.noticias.filter(n => n.categoria === "Rebalanceo" || n.categoria === "Sin operar").length} veces; en ${c.noticias.filter(n => n.categoria === "Rebalanceo").length} se ajustó la distribución porque se había alejado de su objetivo.</p>`); }
     case "proximos": return wrap("Próximos pasos", "Próximos pasos", `<textarea data-notes aria-label="Próximos pasos">${esc(pres.notes || "")}</textarea>`);
@@ -77,6 +82,21 @@ function evoSVG(c) {
     s += `<path d="${idx.map((i, j) => `${j ? "L" : "M"}${x(j)},${y(cum[j])}`).join("")}${idx.map((i, j) => `L${x(idx.length - 1 - j)},${y(lo[idx.length - 1 - j])}`).join("")}Z" fill="#${PAL[k]}"/>`; });
   s += `<path d="${idx.map((i, j) => `${j ? "L" : "M"}${x(j)},${y(c.ts.neto[i])}`).join("")}" fill="none" stroke="#161616" stroke-width="2.5" stroke-dasharray="7 5"/>`;
   const step = Math.max(1, Math.ceil(idx.length / 7)); idx.forEach((i, j) => { if (j % step === 0) s += `<text x="${x(j)}" y="${H - 8}" text-anchor="middle" font-size="13">${fmonth(c.ts.fechas[i].slice(0, 7))}</text>`; });
+  return s + "</svg>";
+}
+function crisisSVG(c) {
+  const t = c.crisis.trayectoria, v0 = t.valor_inicial, N = t.total.length, W = 520, H = 300, m = { l: 60, r: 14, t: 14, b: 26 };
+  const lo = Math.min(...t.total, c.ddIPS != null ? v0 * (1 - c.ddIPS / 100) : Infinity) * .97, hi = Math.max(...t.total, v0) * 1.02;
+  const x = i => m.l + i / (N - 1) * (W - m.l - m.r), y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Valor de la cartera durante la crisis">`;
+  [lo, (lo + hi) / 2, hi].forEach(v => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="#e0e0e0"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end" font-size="12">${nf(v / 1e6, 0)}M</text>`; });
+  s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v0)}" y2="${y(v0)}" stroke="#525252" stroke-dasharray="6 4"/>`;
+  if (c.ddIPS != null) { const yl = y(v0 * (1 - c.ddIPS / 100)); s += `<line x1="${m.l}" x2="${W - m.r}" y1="${yl}" y2="${yl}" stroke="#da1e28" stroke-dasharray="6 4"/><text x="${W - m.r}" y="${yl - 5}" text-anchor="end" font-size="12" fill="#da1e28">caída tolerada</text>`; }
+  const line = t.total.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join("");
+  s += `<path d="${line}L${x(N - 1)},${y(lo)}L${x(0)},${y(lo)}Z" fill="#0f62fe" fill-opacity=".12"/><path d="${line}" fill="none" stroke="#0f62fe" stroke-width="2.5"/>`;
+  const iT = t.total.indexOf(Math.min(...t.total));
+  s += `<circle cx="${x(iT)}" cy="${y(t.total[iT])}" r="5" fill="#da1e28"/><text x="${x(iT)}" y="${y(t.total[iT]) + 20}" text-anchor="middle" font-size="13" fill="#161616">${spct(t.caida_maxima, 1)}</text>`;
+  s += `<text x="${m.l}" y="${H - 6}" font-size="12">${fdate(t.fechas[0])}</text><text x="${W - m.r}" y="${H - 6}" text-anchor="end" font-size="12">${fdate(t.fechas[N - 1])}</text>`;
   return s + "</svg>";
 }
 function allocSVG(w, p) {
@@ -171,6 +191,13 @@ async function buildPptx(c, ids) {
     if (id === "riesgo") { head("Riesgo", "Qué pasaría en un mal escenario"); const pick = ["adverso", "stress", "covid", "estallido"].filter(k => c.stress[k]).map(k => c.stress[k]);
       s.addChart(P.ChartType.bar, [{ name: "Variación", labels: pick.map(x => x.nombre), values: pick.map(x => Math.round(x.retorno * 1000) / 10) }], { x: .6, y: 1.5, w: 6.4, h: 5.2, barDir: "bar", chartColors: ["DA1E28"], valAxisLabelFormatCode: '0"%"', showValue: true, dataLabelFormatCode: '0.0"%"', showLegend: false });
       s.addText(pick.map(x => `${x.nombre}: su cartera ${x.retorno < 0 ? "bajaría" : "subiría"} ${pct(Math.abs(x.retorno), 1)} (${mm(Math.abs(x.pnl_clp))}).`).join("\n\n") + "\n\nAdverso y Stress son supuestos a 12 meses; los otros repiten episodios reales con su cartera actual.", { x: 7.3, y: 1.6, w: 5.4, h: 5, fontFace: FONT, fontSize: 13, color: "393939", valign: "top" }); }
+    if (id === "crisis" && c.crisis) { const e = c.crisis, t = e.trayectoria; head("Crisis", `Si se repitiera: ${e.nombre}`);
+      const step = Math.max(1, Math.ceil(t.fechas.length / 60)), idx = t.fechas.map((_, i) => i).filter(i => i % step === 0 || i === t.fechas.length - 1);
+      const labels = idx.map(i => fdate(t.fechas[i]));
+      const ser = [{ name: "Su cartera", labels, values: idx.map(i => Math.round(t.total[i] / 1e5) / 10) }, { name: "Valor inicial", labels, values: idx.map(() => Math.round(t.valor_inicial / 1e5) / 10) }];
+      if (c.ddIPS != null) ser.push({ name: "Caída tolerada", labels, values: idx.map(() => Math.round(t.valor_inicial * (1 - c.ddIPS / 100) / 1e5) / 10) });
+      s.addChart(P.ChartType.line, ser, { x: .6, y: 1.5, w: 6.6, h: 5.2, chartColors: ["0F62FE", "525252", "DA1E28"], lineSize: 2, lineDataSymbol: "none", showLegend: true, legendPos: "b", valAxisLabelFormatCode: '#,##0"M"', catAxisLabelFrequency: Math.max(1, Math.ceil(idx.length / 6)), catAxisLabelFontSize: 9 });
+      s.addText([`Si su cartera de hoy hubiera vivido ${e.nombre} (${fdate(e.desde)} a ${fdate(e.hasta)}), habría bajado hasta ${pct(-t.caida_maxima, 1)} (${mm(-t.caida_maxima * t.valor_inicial)}) en ${t.dias_hasta_fondo} días.`, t.fecha_recuperacion ? `Habría recuperado su valor ${t.dias_recuperacion} días después del punto más bajo, sin vender.` : "No habría recuperado su valor dentro del año siguiente.", c.ddIPS != null ? `La caída máxima que usted acordó tolerar es ${nf(c.ddIPS)}%: esta crisis ${-t.caida_maxima * 100 > c.ddIPS ? "la superaría" : "quedaría dentro"}.` : "", "Es la peor de las crisis recientes para esta cartera; no predice la próxima."].filter(Boolean).join("\n\n"), { x: 7.5, y: 1.6, w: 5.2, h: 5, fontFace: FONT, fontSize: 13, color: "393939", valign: "top" }); }
     if (id === "movimientos") { head("Flujos", "Sus aportes y retiros"); tiles([["Aportes", mm(c.flujos.aportes_externos)], ["Retiros", mm(c.flujos.retiros_externos)], ["Ganancia neta", mm(c.flujos.ganancia_neta)]]); para(`La rentabilidad de la cartera mide cómo se gestionó el dinero. Su retorno personal (${pct(r.xirr, 1)} anual) incluye además el momento en que usted aportó o retiró.`, 3.4); }
     if (id === "decisiones") { head("Gestión", "Lo que hicimos en el período"); const ns = c.noticias.filter(x => !x.quiet && x.categoria !== "Cierre").slice(-7); s.addTable([["Fecha", "Qué", "Detalle"].map(t => ({ text: t, options: { bold: true, fill: { color: "F4F4F4" } } })), ...ns.map(x => [fdate(x.fecha), x.categoria, x.titulo])], { x: .6, y: 1.5, w: 12.1, colW: [1.8, 2.4, 7.9], fontFace: FONT, fontSize: 12, color: INK, border: { type: "solid", color: "E0E0E0", pt: .75 } }); }
     if (id === "proximos") { head("Próximos pasos", "Próximos pasos"); para(pres.notes || "(sin texto)", 1.6, 5, { fontSize: 16 }); }

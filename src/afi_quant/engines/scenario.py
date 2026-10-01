@@ -14,6 +14,13 @@ cliente — nunca solo retorno. La moneda es transversal: la cartera es
 100% CLP y el componente FX del fondo global ya viene en su NAV en CLP;
 no se asume cobertura.
 
+Trayectoria de crisis: además del resultado de punta a punta, cada episodio
+trae el recorrido diario de la cartera ACTUAL comprada al inicio y mantenida
+(sin rebalancear), desde el inicio del episodio hasta recuperar su valor o un
+año después del fin, lo que ocurra primero. Es la misma Historical Simulation
+(CORE) mirada día a día: profundidad, días hasta el fondo y días de
+recuperación. No hay modelo nuevo.
+
 Reverse Stress Testing (ADVANCED, QM XI): en vez de preguntar cuánto se
 pierde en un escenario, pregunta qué shock haría falta para "romper" un
 límite. La definición de ruptura es un parámetro (`reverse_stress_breach_limit`;
@@ -65,6 +72,67 @@ def episode_returns(universe, desde: date, hasta: date) -> dict:
     return out
 
 
+RECOVERY_HORIZON_DAYS = 365
+
+
+def episode_path(universe, values: dict[str, float], desde: date, hasta: date,
+                 recovery_days: int = RECOVERY_HORIZON_DAYS) -> dict:
+    """
+    Valor diario de la cartera actual (comprar y mantener) durante el episodio y su
+    recuperación. Un vehículo sin historia usa su sustituto declarado; sin sustituto,
+    queda plano (0%) y se informa.
+    """
+    end_cap = date.fromordinal(hasta.toordinal() + recovery_days)
+    series, sources = {}, {}
+    for k in values:
+        pts = universe[k].series.points
+        p0 = _price_on(pts, desde)
+        if p0 is not None and (desde - p0.fecha).days <= 7:
+            series[k], sources[k] = pts, "observado"
+    for k in values:
+        if k in series:
+            continue
+        sub = EPISODE_SUBSTITUTES.get(k)
+        if series.get(sub):
+            series[k], sources[k] = series[sub], f"sustituto ({sub})"
+        else:
+            series[k], sources[k] = None, "sin dato: plano"
+    last_data = min(s[-1].fecha for s in series.values() if s)
+    days = sorted({p.fecha for s in series.values() if s for p in s if desde <= p.fecha <= min(end_cap, last_data)})
+    base = {k: _price_on(s, desde).valor_cuota for k, s in series.items() if s}
+    cursor = {k: 0 for k in series}
+    last_px = dict(base)
+    path = []
+    total0 = sum(values.values())
+    for d in days:
+        row = {}
+        for k, s in series.items():
+            if s is None:
+                row[k] = values[k]
+                continue
+            while cursor[k] < len(s) and s[cursor[k]].fecha <= d:
+                last_px[k] = s[cursor[k]].valor_cuota
+                cursor[k] += 1
+            row[k] = values[k] * last_px[k] / base[k]
+        path.append({"fecha": d, "por_vehiculo": row, "total": sum(row.values())})
+        if d > hasta and path[-1]["total"] >= total0:
+            break
+    trough = min(path, key=lambda p: p["total"])
+    rec = next((p for p in path if p["fecha"] > trough["fecha"] and p["total"] >= total0), None)
+    at_end = next((p for p in reversed(path) if p["fecha"] <= hasta), path[-1])
+    return {
+        "puntos": path, "fuentes": sources,
+        "valor_inicial": total0,
+        "caida_maxima": trough["total"] / total0 - 1, "fecha_fondo": trough["fecha"],
+        "dias_hasta_fondo": (trough["fecha"] - desde).days,
+        "fecha_recuperacion": rec["fecha"] if rec else None,
+        "dias_recuperacion": (rec["fecha"] - trough["fecha"]).days if rec else None,
+        "retorno_al_fin": at_end["total"] / total0 - 1,
+        "horizonte_recuperacion_dias": recovery_days,
+        "datos_hasta": days[-1] if days else None,
+    }
+
+
 class ScenarioEngine:
     name = "scenario"
     required_critical_data = ["current_values", "vehicle_universe", "scenario_library",
@@ -105,6 +173,7 @@ class ScenarioEngine:
                                {k: r["fuente"] for k, r in rets.items()}, set(), base_ctx, base_var)
             res["desde"], res["hasta"] = ep["desde"], ep["hasta"]
             res["cobertura_observada"] = sum(weights[k] for k, r in rets.items() if r["fuente"] == "observado")
+            res["trayectoria"] = episode_path(universe, values, d0, d1)
             historical[key] = res
 
         reverse = self._reverse_stress(case, weights, total, library, universe)

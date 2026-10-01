@@ -1,7 +1,7 @@
 /* Mesa Central — espacio de trabajo del cliente: nueve pestañas generalizadas para cualquier cliente. */
 "use strict";
 const CTABS = [["resumen", "Resumen"], ["grafico", "Gráfico"], ["construccion", "Construcción"], ["cartera", "Cartera"],
-  ["riesgo", "Riesgo y stress"], ["benchmark", "Benchmark"], ["flujos", "Flujos"], ["decisiones", "Decisiones"], ["datos", "Datos y supuestos"]];
+  ["riesgo", "Riesgo y stress"], ["crisis", "Simulación de crisis"], ["benchmark", "Benchmark"], ["flujos", "Flujos"], ["decisiones", "Decisiones"], ["datos", "Datos y supuestos"]];
 const cv = { tab: store.get("ctab", "resumen"), C: null, charts: {} };
 const GC = ["--g1", "--g2", "--g3", "--c4", "--c5"];
 let GOALS = [], gname = {}, gcol = {};
@@ -11,7 +11,7 @@ const CAT_STYLE = {
   "Meta cumplida": { c: "--ok", l: "M", shape: "arrowUp" }, "Meta con déficit": { c: "--err", l: "M", shape: "arrowDown" },
   "Alerta": { c: "--err", l: "!", shape: "arrowDown" }, "Cierre": { c: "--info", l: "C", shape: "circle" }, "Sin operar": { c: "--idle", l: "·", shape: "circle" } };
 const kpi = (l, v, n, c = "") => `<div class="kpi"><span class="lbl">${l}</span><span class="v sm${c}">${v}</span><span class="helper">${esc(n)}</span></div>`;
-function killCharts() { Object.values(cv.charts).forEach(ch => { try { ch.remove(); } catch (e) {} }); cv.charts = {}; }
+function killCharts() { Object.values(cv.charts).forEach(ch => { try { ch.remove(); } catch (e) {} }); cv.charts = {}; if (typeof crStop === "function") crStop(); }
 const hasLW = () => typeof LightweightCharts !== "undefined";
 function baseChart(host, extra = {}) {
   const LW = LightweightCharts;
@@ -47,7 +47,9 @@ RENDER.cliente = async function (opts = {}) {
   renderCTab();
 };
 function bindPick() { document.querySelectorAll("#v-cliente .cpick button").forEach(b => b.addEventListener("click", () => { app.client = b.dataset.c; store.set("client", app.client); document.querySelectorAll("#snav [data-client]").forEach(x => x.setAttribute("aria-current", x.dataset.client === app.client ? "page" : "false")); RENDER.cliente(); })); }
-function renderCTab() { killCharts(); const h = $("ctab"); h.innerHTML = ""; try { CT[cv.tab](h, cv.C); } catch (e) { console.error(e); h.innerHTML = `<div class="notif err"><span>${si("alerta", "Error")}</span><span>${esc(e.message)}</span></div>`; } }
+let ctResize = null, ctW = 0;
+addEventListener("resize", () => { clearTimeout(ctResize); ctResize = setTimeout(() => { const w = $("ctab") ? $("ctab").clientWidth : 0; if (app.view === "cliente" && cv.C && w && Math.abs(w - ctW) > 40 && cv.tab !== "grafico") renderCTab(); }, 200); });
+function renderCTab() { ctW = $("ctab") ? $("ctab").clientWidth : 0; killCharts(); const h = $("ctab"); h.innerHTML = ""; try { CT[cv.tab](h, cv.C); } catch (e) { console.error(e); h.innerHTML = `<div class="notif err"><span>${si("alerta", "Error")}</span><span>${esc(e.message)}</span></div>`; } }
 const CT = {};
 
 /* ---------- Resumen ---------- */

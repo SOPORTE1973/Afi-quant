@@ -194,5 +194,9 @@ SCENARIO_LIBRARY = {
         "constituyentes": {"nombre": "Elección de constituyentes", "desde": "2021-05-14",
                            "hasta": "2021-05-18"},
         "caida_2026": {"nombre": "Caída RV local 2026", "desde": "2026-02-03", "hasta": "2026-06-08"},
+        # Mercado bajista global 2022: del máximo de inicio de año al mínimo del S&P 500.
+        "bajista_2022": {"nombre": "Mercado bajista global 2022", "desde": "2022-01-03", "hasta": "2022-10-12"},
+        # Anuncio de aranceles de EE.UU. (2 de abril) hasta el mínimo antes de la pausa.
+        "aranceles_2025": {"nombre": "Shock arancelario 2025", "desde": "2025-04-02", "hasta": "2025-04-08"},
     },
 }
