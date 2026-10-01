@@ -62,6 +62,8 @@ document.addEventListener("click", e => {
   const f = e.target.closest("[data-open-fund]"); if (f) { app.fund = f.dataset.openFund; store.set("fund", app.fund); go("dd"); }
 });
 $("menu").addEventListener("click", () => $("snav").classList.toggle("open"));
+// Áreas del menú lateral (los clientes del submenú usan data-open-client)
+document.querySelectorAll("#snav [data-view]").forEach(b => b.addEventListener("click", () => go(b.dataset.view)));
 
 /* ---------- Libro ---------- */
 RENDER.libro = function () {

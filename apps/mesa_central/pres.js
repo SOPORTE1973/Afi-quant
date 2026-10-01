@@ -123,11 +123,11 @@ RENDER.pres = async function () {
       <div class="tile"><h3>Revisión y liberación</h3><p class="helper">El sistema no se comunica con el cliente. Quien presenta revisa y libera; queda registrado con fecha, láminas y datos usados.</p>
         <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="p-ack"> Revisé las cifras y el lenguaje, y comunicaré esta presentación yo mismo al cliente.</label>
         <label for="p-note" class="lbl">Nota para el registro (opcional)</label><textarea id="p-note" rows="2" style="border:0;border-bottom:1px solid var(--border-strong);background:var(--layer-2);padding:8px"></textarea>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="p-release" disabled>Liberar y descargar PPTX</button><button class="btn" id="p-present">Presentar en pantalla</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="p-release">Liberar y descargar PPTX</button><button class="btn" id="p-present">Presentar en pantalla</button></div>
         <div id="p-msg" class="notif" hidden></div><h4>Liberaciones registradas</h4><div class="log" id="p-log"><div class="helper">Conectando con el registro compartido…</div></div></div>
     </div><div class="deck" id="deck"><div class="loading">Cargando cliente…</div></div></div>`;
   $("p-client").addEventListener("change", e => { pres.client = e.target.value; RENDER.pres(); });
-  $("p-ack").addEventListener("change", e => { $("p-release").disabled = !e.target.checked; });
+  $("p-ack").addEventListener("change", e => { if (e.target.checked) $("p-msg").hidden = true; });
   $("p-present").addEventListener("click", () => { $("present").hidden = false; showPresent(0); const p = $("present"); if (p.requestFullscreen) p.requestFullscreen().catch(() => {}); });
   $("p-release").addEventListener("click", release);
   try { pres.C = deckModel(await loadClient(pres.client)); } catch (e) { $("deck").innerHTML = `<div class="notif err"><span>${si("alerta", "Error")}</span><span>${esc(e.message)}</span></div>`; return; }
@@ -135,7 +135,9 @@ RENDER.pres = async function () {
 };
 function renderCatalog() {
   $("catalog").innerHTML = pres.order.map((id, i) => { const s = SLIDES.find(x => x.id === id), on = pres.on.has(id);
-    return `<div class="sitem${on ? "" : " off"}"><input type="checkbox" id="chk-${id}" data-id="${id}" ${on ? "checked" : ""} ${s.fixed ? "disabled" : ""}><label for="chk-${id}">${esc(s.t)}<small>${esc(s.d)}</small></label>${s.fixed ? '<span class="lock">siempre</span>' : `<span class="mv"><button data-up="${id}" aria-label="Subir ${esc(s.t)}" ${i <= 1 ? "disabled" : ""}>▲</button><button data-down="${id}" aria-label="Bajar ${esc(s.t)}" ${i >= pres.order.length - 2 ? "disabled" : ""}>▼</button></span>`}</div>`; }).join("");
+    // Láminas obligatorias: candado en vez de una casilla inactiva. Flechas solo donde se puede mover.
+    const first = i <= 1, last = i >= pres.order.length - 2;
+    return `<div class="sitem${on ? "" : " off"}">${s.fixed ? '<span aria-hidden="true" title="Lámina obligatoria" style="width:16px;text-align:center">🔒</span>' : `<input type="checkbox" id="chk-${id}" data-id="${id}" ${on ? "checked" : ""}>`}<label ${s.fixed ? "" : `for="chk-${id}"`}>${esc(s.t)}<small>${esc(s.d)}</small></label>${s.fixed ? '<span class="lock">obligatoria</span>' : `<span class="mv">${first ? '<span style="width:28px"></span>' : `<button data-up="${id}" aria-label="Subir ${esc(s.t)}">▲</button>`}${last ? '<span style="width:28px"></span>' : `<button data-down="${id}" aria-label="Bajar ${esc(s.t)}">▼</button>`}</span>`}</div>`; }).join("");
   document.querySelectorAll("#catalog input").forEach(cb => cb.addEventListener("change", () => { cb.checked ? pres.on.add(cb.dataset.id) : pres.on.delete(cb.dataset.id); saveSel(); renderCatalog(); renderDeck(); }));
   const mv = (id, d) => { const i = pres.order.indexOf(id), j = i + d; if (j < 1 || j > pres.order.length - 2) return; [pres.order[i], pres.order[j]] = [pres.order[j], pres.order[i]]; saveSel(); renderCatalog(); renderDeck(); };
   document.querySelectorAll("#catalog [data-up]").forEach(b => b.addEventListener("click", () => mv(b.dataset.up, -1)));
@@ -206,7 +208,7 @@ async function buildPptx(c, ids) {
   return P.write({ outputType: "blob" });
 }
 async function release() {
-  if (!$("p-ack").checked) return;
+  if (!$("p-ack").checked) { msg("Antes de liberar, marca la casilla de revisión: confirma que revisaste las cifras y que tú comunicarás la presentación al cliente (QM XX).", "err"); $("p-ack").focus(); return; }
   const c = pres.C, ids = chosen(); $("p-release").disabled = true;
   try {
     if (db) { let por = null; try { por = user ? await user.id() : null; } catch (e) {}
@@ -218,5 +220,5 @@ async function release() {
   } catch (e) {
     const code = e && e.code;
     msg(code === "declined" ? "Descarga cancelada. La liberación quedó registrada." : code === "invalid_argument" ? "Tu nivel de acceso no permite registrar liberaciones." : "No se pudo completar: " + (e && e.message || e), code === "declined" ? "" : "err");
-  } finally { $("p-release").disabled = !$("p-ack").checked; }
+  } finally { $("p-release").disabled = false; }
 }

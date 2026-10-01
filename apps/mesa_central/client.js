@@ -111,8 +111,12 @@ CT.grafico = function (h, C) {
     <div class="chips" id="chips" hidden></div></div>
     <aside class="news" aria-label="Decisiones como noticias"><div class="nh"><h4>Decisiones</h4>${seg("s-news", [["all", "Todas"], ["act", "Con operación"]], "newsFilter")}</div><div class="nlist" id="nlist"></div><div class="helper" style="padding:8px 16px;border-top:1px solid var(--border)">Clic en un marcador o en una noticia para sincronizarlos.</div></aside></div>
     <div class="legend">${Object.entries(CAT_STYLE).filter(([k]) => C.noticias.some(n => n.categoria === k)).map(([k, s]) => `<span><span class="nb" style="--bc:var(${s.c})">${s.l}</span>${k}</span>`).join("")}</div>`;
+  const setMode = m => { tvs.mode = m; document.querySelectorAll("#s-mode button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === m))); };
   const bind = (id, key) => document.querySelectorAll(`#${id} button`).forEach(b => b.addEventListener("click", () => {
-    if (b.disabled) return;
+    // Ningún control queda inactivo: si la opción pertenece a otro modo, el gráfico cambia de modo.
+    if (key === "view" && tvs.mode !== "valor") setMode("valor");
+    if (key === "layers" && b.dataset.v === "bench" && tvs.mode === "valor") { setMode("rent"); tvs.layers.bench = false; }
+    if (key === "layers" && b.dataset.v === "net" && tvs.mode !== "valor") { setMode("valor"); tvs.layers.net = false; }
     if (key === "layers") { tvs.layers[b.dataset.v] = !tvs.layers[b.dataset.v]; b.setAttribute("aria-pressed", String(tvs.layers[b.dataset.v])); }
     else { tvs[key] = b.dataset.v; document.querySelectorAll(`#${id} button`).forEach(x => x.setAttribute("aria-pressed", String(x === b))); }
     if (key === "range") return applyRange(C);
@@ -133,8 +137,9 @@ function buildTv(C) {
   const LW = LightweightCharts; tv = baseChart(host); cv.charts.tv = tv;
   const TS = C.ts, ser = arr => TS.fechas.map((t, i) => arr[i] == null ? { time: t } : { time: t, value: arr[i] });
   const add = (type, o, pane = 0) => tv.addSeries(LW[type], o, pane);
-  document.querySelectorAll("#s-view button").forEach(b => b.disabled = tvs.mode !== "valor");
-  $("s-lay").querySelector('[data-v="bench"]').disabled = tvs.mode === "valor"; $("s-lay").querySelector('[data-v="net"]').disabled = tvs.mode !== "valor";
+  // Las opciones que no aplican al modo actual se ven atenuadas pero siguen clicables (cambian de modo).
+  document.querySelectorAll("#s-view button").forEach(b => b.style.opacity = tvs.mode !== "valor" ? .55 : "");
+  $("s-lay").querySelector('[data-v="bench"]').style.opacity = tvs.mode === "valor" ? .55 : ""; $("s-lay").querySelector('[data-v="net"]').style.opacity = tvs.mode !== "valor" ? .55 : "";
   $("chips").hidden = tvs.mode !== "comp";
   let pane = 0;
   if (tvs.mode === "valor") {
