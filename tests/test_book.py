@@ -81,3 +81,17 @@ def test_construction_respects_ips_volatility_limit(book):
         sleeves = book.results[bc.client.client_id].onboarding_results["construction"]["sleeves"]
         for s in sleeves.values():
             assert s["volatilidad_ex_ante"] <= lim / 100 + 1e-9
+
+
+def test_catalog_covers_all_connector_funds_and_keeps_construction_universe():
+    from afi_quant.due_diligence.catalog import screen_catalog
+    u = default_universe()
+    model = {v.series.rut: k for k, v in u.items()}
+    c = screen_catalog(date(2026, 9, 29), DD, model, set(model))
+    assert c["resumen"]["total"] == 130 and c["resumen"]["universo_construccion"] == len(u)
+    rows = {r["rut"]: r for r in c["fondos"]}
+    assert {rows[r]["clave_modelo"] for r in model} == set(u)
+    assert all(r["universo"] == "referencia" for r in c["fondos"] if r["tipo"] in ("AFP", "UF"))
+    mm = rows[u["MM"].series.rut]
+    # y3 viene acumulado en %: anualizado debe ser menor que el acumulado
+    assert 0 < mm["rentabilidad"]["y3_anual"] < mm["serie"]["y3"] / 100

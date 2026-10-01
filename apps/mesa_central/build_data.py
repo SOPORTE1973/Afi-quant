@@ -16,6 +16,7 @@ from pathlib import Path
 
 from afi_quant.book.run import run_book
 from afi_quant.data.fixtures import afp_sistema_c
+from afi_quant.due_diligence.catalog import screen_catalog
 from afi_quant.due_diligence.review import load_dossiers
 from afi_quant.engines.cma import LEDOIT_WOLF, apply_registry_assumptions, estimate_cma, monthly_history
 from afi_quant.engines.construction import grid_portfolios, optimize_grid
@@ -310,6 +311,9 @@ def main(out_dir: str):
         "referencias": adv0["referencias"], "relativo_por_fondo": adv0["relativo"].get("por_fondo"),
         "calidad_datos": adv0["calidad_datos"], "parametros": SIMULATION_VALUES, "biblioteca": SCENARIO_LIBRARY,
         "fuente_fondos": load_dossiers()["fuente"],
+        "catalogo": screen_catalog(b.as_of, {"dd_min_track_record_years": P("dd_min_track_record_years")},
+                                   {v.series.rut: k for k, v in u.items()},
+                                   {u[k].series.rut for k, hs in b.aggregates["tenedores"].items() if hs}),
     }
     (out / "libro.json").write_text(json.dumps(js(shared), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     sizes = {}

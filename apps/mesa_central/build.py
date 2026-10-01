@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SCRIPTS = ("app.js", "client.js", "crisis.js", "cartera.js", "pres.js")
+SCRIPTS = ("app.js", "client.js", "crisis.js", "cartera.js", "dd.js", "pres.js")
 
 
 def stage_app(out: Path) -> dict[str, str]:

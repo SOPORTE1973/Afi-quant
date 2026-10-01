@@ -59,7 +59,7 @@ function go(v, opts = {}) {
 function openClient(id, tab) { app.client = id; store.set("client", id); go("cliente", { tab }); }
 document.addEventListener("click", e => {
   const c = e.target.closest("[data-open-client]"); if (c) { openClient(c.dataset.openClient, c.dataset.tab); return; }
-  const f = e.target.closest("[data-open-fund]"); if (f) { app.fund = f.dataset.openFund; store.set("fund", app.fund); go("dd"); }
+  const f = e.target.closest("[data-open-fund]"); if (f) { app.fund = f.dataset.openFund; app._ddFromLink = true; store.set("fund", app.fund); go("dd"); }
 });
 $("menu").addEventListener("click", () => $("snav").classList.toggle("open"));
 // Áreas del menú lateral (los clientes del submenú usan data-open-client)
@@ -101,15 +101,13 @@ RENDER.libro = function () {
 };
 
 /* ---------- Due diligence ---------- */
-RENDER.dd = function () {
+/* Dossier completo de un fondo del universo de construcción (lo llama dd.js). */
+function renderModelDossier(host) {
   const F = L.fondos, f = F[app.fund], fi = f.ficha, ca = fi.cartera || {}, i = f.idd, A = L.agregados;
   const row = (l, v) => `<dt>${l}</dt><dd>${v}</dd>`;
   const stepCol = v => v.startsWith("completa") ? "var(--ok)" : v.startsWith("parcial") || v.startsWith("señales") ? "var(--warn)" : "var(--border-strong)";
   const rel = f.relativo;
-  $("v-dd").innerHTML = `
-    <div class="pagehead"><span class="lbl">Due diligence centralizado · ${esc(L.fuente_fondos)}</span><div class="row"><h1>Fondos del universo</h1></div>
-      <p class="muted" style="max-width:96ch">Cada fondo se evalúa una vez y todos los clientes que lo tienen heredan su estado. El sistema calcula la parte cuantitativa y detecta señales. Los pilares cualitativos y la revisión operacional requieren DDQ, reuniones y verificación con terceros, y el estado en la Approved List lo decide el Comité.</p></div>
-    <div class="tabs" role="tablist">${L.vehiculos.map(k => `<button role="tab" data-f="${k}" aria-selected="${k === app.fund}">${k} · ${esc(F[k].administradora)}</button>`).join("")}</div>
+  host.innerHTML = `
     <div class="tile"><div class="th"><div><span class="lbl">${app.fund} · RUN ${esc(fi.rut)}</span><h2>${esc(fi.nombre_completo)}</h2></div><div style="display:flex;gap:12px;flex-wrap:wrap">${si("sin_datos", "Approved List: " + f.estado)}${f.senales.length ? si("atencion", `${f.senales.length} señal${f.senales.length > 1 ? "es" : ""}`) : si("ok", "Sin señales")}</div></div>
       <div class="steps">${Object.entries(f.etapas).map(([s, v]) => `<div class="step" style="--sc:${stepCol(v)}"><b>${esc(s)}</b><span>${esc(v)}</span></div>`).join("")}</div>
       <div class="notif ${f.elegibilidad.elegible ? "ok" : "err"}"><span>${si(f.elegibilidad.elegible ? "ok" : "alerta", f.elegibilidad.elegible ? "Elegible" : "No elegible")}</span><span>${esc(f.elegibilidad.motivo)}. Nivel máximo en decisiones sobre este fondo: ${f.elegibilidad.nivel_maximo_decisiones_de_fondo}. Siguiente paso: ${esc(f.elegibilidad.propuesta)}.</span></div></div>
@@ -134,13 +132,12 @@ RENDER.dd = function () {
     <div class="tile"><h3>Clientes con este fondo</h3><div class="tw"><table class="dt"><thead><tr><th>Cliente</th><th>Perfil</th><th>Valor en el fondo</th><th>Peso en su cartera</th></tr></thead><tbody>
       ${f.tenedores.slice().sort((a, b) => b.valor - a.valor).map(h => `<tr><td><button class="link" data-open-client="${h.cliente}">${h.cliente} · ${esc(L.clientes[h.cliente].nombre)}</button></td><td>${esc(L.clientes[h.cliente].perfil)}</td><td class="n">${mm(h.valor)}</td><td class="n">${pct(h.valor / L.clientes[h.cliente].valor, 0)}</td></tr>`).join("") || '<tr><td colspan="4" class="muted">Ningún cliente lo tiene.</td></tr>'}
     </tbody></table></div></div>`;
-  document.querySelectorAll("#v-dd [data-f]").forEach(b => b.addEventListener("click", () => { app.fund = b.dataset.f; store.set("fund", app.fund); RENDER.dd(); }));
   // mini gráfico de valor cuota (base 100)
-  const host = $("dd-nav"); const pts = f.nav; if (!pts.length) return;
-  const W = Math.max(320, host.clientWidth), H = 150, m = { l: 40, r: 8, t: 8, b: 20 }, base = pts[0].v;
+  const navHost = $("dd-nav"); const pts = f.nav; if (!pts.length) return;
+  const W = Math.max(320, navHost.clientWidth || 600), H = 150, m = { l: 40, r: 8, t: 8, b: 20 }, base = pts[0].v;
   const vals = pts.map(p => p.v / base * 100), lo = Math.min(...vals), hi = Math.max(...vals);
   const x = i => m.l + i / (pts.length - 1) * (W - m.l - m.r), y = v => m.t + (1 - (v - lo) / (hi - lo || 1)) * (H - m.t - m.b);
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Valor cuota base 100" }, host);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Valor cuota base 100" }, navHost);
   [lo, (lo + hi) / 2, hi].forEach(v => { el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: css("--border") }, svg); txt(svg, m.l - 6, y(v) + 4, nf(v, 0), { "text-anchor": "end" }); });
   el("path", { d: vals.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join(""), fill: "none", stroke: vc(app.fund), "stroke-width": 2 }, svg);
   [0, Math.floor(pts.length / 2), pts.length - 1].forEach(i => txt(svg, x(i), H - 4, fmonth(pts[i].f.slice(0, 7)), { "text-anchor": i === 0 ? "start" : i === pts.length - 1 ? "end" : "middle" }));
