@@ -1,0 +1,643 @@
+<title>Mesa Central AFI Quant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+/* Layout: barra lateral de áreas (Libro, Clientes, Due diligence, Presentaciones) + área de trabajo; en teléfono la barra pasa arriba. */
+:root {
+  --bg: #f3f5f7; --surface: #ffffff; --raised: #f8fafb; --ink: #16212c; --ink-2: #4a5866; --ink-3: #6f7d8b;
+  --line: #dde3e9; --line-soft: #eaeef2; --accent: #1d5b8f; --accent-soft: #e3edf6; --side: #13212e; --side-ink: #c9d6e2; --side-ink-2: #8aa0b4;
+  --ok: #1f7a4d; --ok-soft: #e2f2e9; --warn: #9a5b00; --warn-soft: #fbefd9; --bad: #b3261e; --bad-soft: #f9e3e1; --idle: #6f7d8b; --idle-soft: #eceff2;
+  --v-MM: #2a78d6; --v-RF: #eb6834; --v-DP: #1baf7a; --v-RVL: #eda100; --v-RVG: #e87ba4;
+  --bar: #c9d3dd; --slide-bg: #ffffff; --slide-ink: #16212c;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141a; --surface: #151f29; --raised: #1a2631; --ink: #e6ecf1; --ink-2: #aab6c2; --ink-3: #8593a1;
+    --line: #2a3643; --line-soft: #1f2a35; --accent: #6aa9dc; --accent-soft: #1b3044; --side: #0a1016; --side-ink: #c9d6e2; --side-ink-2: #7d93a7;
+    --ok: #5cc28c; --ok-soft: #173427; --warn: #e0a94a; --warn-soft: #3a2c14; --bad: #f07a70; --bad-soft: #3d1d1b; --idle: #8593a1; --idle-soft: #222d38;
+    --v-MM: #3987e5; --v-RF: #d95926; --v-DP: #199e70; --v-RVL: #c98500; --v-RVG: #d55181;
+    --bar: #3a4a5a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141a; --surface: #151f29; --raised: #1a2631; --ink: #e6ecf1; --ink-2: #aab6c2; --ink-3: #8593a1;
+  --line: #2a3643; --line-soft: #1f2a35; --accent: #6aa9dc; --accent-soft: #1b3044; --side: #0a1016; --side-ink: #c9d6e2; --side-ink-2: #7d93a7;
+  --ok: #5cc28c; --ok-soft: #173427; --warn: #e0a94a; --warn-soft: #3a2c14; --bad: #f07a70; --bad-soft: #3d1d1b; --idle: #8593a1; --idle-soft: #222d38;
+  --v-MM: #3987e5; --v-RF: #d95926; --v-DP: #199e70; --v-RVL: #c98500; --v-RVG: #d55181;
+  --bar: #3a4a5a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14.5px; line-height: 1.5; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h1 { font-size: 1.55rem; font-weight: 700; } h2 { font-size: 1.15rem; font-weight: 600; } h3 { font-size: 0.95rem; font-weight: 600; }
+p { margin: 0; }
+button, select, input, textarea { font: inherit; color: inherit; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-2); } .small { font-size: 0.82rem; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.7rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
+
+.app { display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 100%; }
+.side { background: var(--side); color: var(--side-ink); padding: 18px 12px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; height: 100vh; }
+.brand { display: grid; gap: 2px; padding: 0 8px; }
+.brand b { font-family: var(--f-display); font-size: 1.05rem; color: #fff; letter-spacing: 0.01em; }
+.brand span { font-family: var(--f-mono); font-size: 0.68rem; color: var(--side-ink-2); letter-spacing: 0.08em; text-transform: uppercase; }
+.nav { display: grid; gap: 2px; }
+.nav button { all: unset; cursor: pointer; padding: 9px 10px; border-radius: 6px; color: var(--side-ink); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.9rem; }
+.nav button:hover { background: rgba(255,255,255,.06); }
+.nav button[aria-current="page"] { background: rgba(106,169,220,.18); color: #fff; font-weight: 600; }
+.nav button:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nav .count { font-family: var(--f-mono); font-size: 0.7rem; background: rgba(255,255,255,.1); border-radius: 999px; padding: 1px 7px; }
+.side-foot { margin-top: auto; font-size: 0.72rem; color: var(--side-ink-2); padding: 0 8px; display: grid; gap: 4px; }
+.sim { display: inline-block; background: var(--warn-soft); color: var(--warn); border-radius: 999px; padding: 2px 9px; font-size: 0.72rem; font-weight: 600; }
+
+main { padding-inline: 24px; padding-block: 22px 60px; min-width: 0; display: grid; gap: 18px; align-content: start; max-width: 1320px; width: 100%; }
+.view { display: grid; gap: 18px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between; align-items: flex-end; }
+.head .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.84rem; color: var(--ink-2); }
+.head .meta b { color: var(--ink); font-weight: 500; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.kpi { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; }
+.kpi .l { font-size: 0.78rem; color: var(--ink-2); }
+.kpi .v { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 1.45rem; font-weight: 500; letter-spacing: -0.02em; }
+.kpi .n { font-size: 0.74rem; color: var(--ink-3); }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+.pill.ok, .st-ok { color: var(--ok); background: var(--ok-soft); }
+.pill.atencion, .st-atencion { color: var(--warn); background: var(--warn-soft); }
+.pill.alerta, .st-alerta { color: var(--bad); background: var(--bad-soft); }
+.pill.sin_datos, .st-sin_datos { color: var(--idle); background: var(--idle-soft); }
+.pill.info { color: var(--accent); background: var(--accent-soft); }
+.link { all: unset; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; font-size: 0.84rem; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 7px 12px; cursor: pointer; font-size: 0.86rem; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+:root[data-theme="dark"] .btn.primary { color: #0e141a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0e141a; } }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--line); background: var(--surface); padding: 6px 11px; cursor: pointer; font-size: 0.82rem; color: var(--ink-2); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* Monitoreo */
+.mon { overflow-x: auto; }
+.mon table { border-collapse: separate; border-spacing: 3px; width: 100%; min-width: 860px; }
+.mon th { font-size: 0.74rem; color: var(--ink-3); font-weight: 500; text-align: left; padding: 4px 6px; }
+.mon td { vertical-align: top; }
+.mon .who { padding: 8px 10px; background: var(--raised); border-radius: 6px; min-width: 190px; cursor: pointer; }
+.mon .who:hover { outline: 1px solid var(--accent); }
+.cell { border-radius: 6px; padding: 8px 9px; font-size: 0.78rem; line-height: 1.35; min-width: 120px; cursor: pointer; border: 1px solid transparent; }
+.cell b { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+.cell span { color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cell:hover { border-color: currentColor; }
+.cell.open span { -webkit-line-clamp: unset; display: block; }
+
+/* Tablas */
+.tw { overflow-x: auto; }
+table.t { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+table.t th, table.t td { padding: 6px 9px; border-bottom: 1px solid var(--line-soft); text-align: right; white-space: nowrap; }
+table.t th:first-child, table.t td:first-child { text-align: left; }
+table.t th { color: var(--ink-3); font-weight: 500; font-size: 0.77rem; }
+table.t td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+table.t td.tx { text-align: left; white-space: normal; min-width: 180px; }
+table.t tr.hl td { background: var(--accent-soft); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--c); margin-right: 6px; vertical-align: 0; }
+.stack { display: flex; height: 16px; border-radius: 3px; overflow: hidden; background: var(--line-soft); }
+.stack i { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.78rem; color: var(--ink-2); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 11px; height: 11px; border-radius: 2px; background: var(--c); display: inline-block; }
+.bars { display: grid; gap: 7px; }
+.bar-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 92px; gap: 10px; align-items: center; font-size: 0.83rem; }
+.bar-row .track { height: 14px; background: var(--line-soft); border-radius: 3px; position: relative; overflow: hidden; }
+.bar-row .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+
+/* Clientes */
+.clist { display: flex; flex-wrap: wrap; gap: 8px; }
+.cbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 12px; cursor: pointer; display: grid; gap: 1px; text-align: left; min-width: 170px; }
+.cbtn[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.cbtn small { color: var(--ink-3); font-size: 0.74rem; }
+.dims { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.goal { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.goal:first-child { border-top: 0; padding-top: 0; }
+.prob { height: 8px; background: var(--line-soft); border-radius: 999px; position: relative; }
+.prob i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--accent); }
+.prob b { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+#cchart { height: 340px; }
+
+/* Due diligence */
+.flist { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.fbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 12px; cursor: pointer; display: grid; gap: 6px; text-align: left; border-top: 3px solid var(--c); }
+.fbtn[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+.steps { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+@media (max-width: 900px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stp { padding: 8px; border-radius: 6px; font-size: 0.76rem; display: grid; gap: 2px; background: var(--raised); border-top: 3px solid var(--line); }
+.stp.completa { border-top-color: var(--ok); } .stp.parcial, .stp.señales { border-top-color: var(--warn); }
+.stp b { font-size: 0.78rem; }
+.sig { display: grid; gap: 2px; padding: 9px 11px; border-left: 3px solid var(--warn); background: var(--warn-soft); border-radius: 4px; font-size: 0.84rem; }
+.sig em { font-style: normal; color: var(--ink-2); font-size: 0.78rem; }
+.chk { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; font-size: 0.84rem; align-items: start; }
+.chk .s { font-family: var(--f-mono); font-size: 0.7rem; color: var(--idle); background: var(--idle-soft); border-radius: 4px; padding: 1px 6px; }
+dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; margin: 0; font-size: 0.85rem; }
+dl.kv dt { color: var(--ink-3); } dl.kv dd { margin: 0; }
+
+/* Presentaciones */
+.builder { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .builder { grid-template-columns: 1fr; } }
+.catalog { display: grid; gap: 6px; }
+.sitem { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 0.86rem; }
+.sitem.off { opacity: .55; }
+.sitem small { display: block; color: var(--ink-3); font-size: 0.74rem; }
+.sitem .mv { display: flex; gap: 2px; }
+.sitem .mv button { border: 1px solid var(--line); background: var(--surface); border-radius: 4px; width: 24px; height: 24px; cursor: pointer; font-size: 0.75rem; line-height: 1; }
+.lock { font-family: var(--f-mono); font-size: 0.66rem; color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.deck { display: grid; gap: 14px; }
+.slide { aspect-ratio: 16 / 9; width: 100%; max-width: 100%; background: var(--slide-bg); color: var(--slide-ink); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; container-type: inline-size; position: relative; }
+.slide .in { position: absolute; inset: 0; padding: 5cqw 5.5cqw 4cqw; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 2.2cqw; }
+.slide h2 { font-size: 3.3cqw; font-weight: 700; color: #16212c; }
+.slide .kick { font-family: var(--f-mono); font-size: 1.2cqw; letter-spacing: .1em; text-transform: uppercase; color: #1d5b8f; }
+.slide .body { min-height: 0; display: grid; gap: 1.6cqw; font-size: 1.55cqw; color: #26323d; align-content: start; }
+.slide .foot { display: flex; justify-content: space-between; font-size: 1.05cqw; color: #6f7d8b; border-top: 1px solid #dde3e9; padding-top: 1cqw; }
+.slide .big { font-family: var(--f-mono); font-size: 3.4cqw; font-weight: 500; color: #16212c; letter-spacing: -0.02em; }
+.slide .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5cqw; }
+.slide .tile { background: #f3f5f7; border-radius: 0.8cqw; padding: 1.6cqw; display: grid; gap: 0.4cqw; }
+.slide .tile span { font-size: 1.25cqw; color: #4a5866; }
+.slide .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5cqw; align-items: start; }
+.slide table { border-collapse: collapse; width: 100%; font-size: 1.4cqw; }
+.slide th, .slide td { padding: 0.7cqw 0.8cqw; border-bottom: 1px solid #e3e8ed; text-align: right; }
+.slide th:first-child, .slide td:first-child { text-align: left; }
+.slide th { color: #6f7d8b; font-weight: 500; }
+.slide svg { width: 100%; height: auto; display: block; }
+.slide svg text { font-family: var(--f-mono); fill: #4a5866; }
+.slide.cover .in { background: linear-gradient(180deg, #13212e 0 62%, #ffffff 62%); }
+.slide.cover h1 { font-size: 4.6cqw; color: #fff; font-weight: 700; }
+.slide.cover .kick { color: #9fc3e3; }
+.slide textarea { width: 100%; height: 100%; border: 1px dashed #c9d3dd; border-radius: 0.6cqw; padding: 1.2cqw; font-size: 1.6cqw; background: #fbfcfd; color: #26323d; resize: none; }
+.release { display: grid; gap: 10px; }
+.release label { display: flex; gap: 8px; align-items: flex-start; font-size: 0.86rem; }
+.log { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
+.log div { font-size: 0.8rem; padding: 7px 9px; background: var(--raised); border-radius: 6px; }
+.msg { font-size: 0.82rem; padding: 8px 10px; border-radius: 6px; background: var(--accent-soft); color: var(--ink); }
+.msg.err { background: var(--bad-soft); }
+.present { position: fixed; inset: 0; background: #0b1117; z-index: 50; display: grid; place-items: center; padding: 2vw; }
+.present .slide { width: min(96vw, 170vh); border: 0; border-radius: 0; }
+.present .pnav { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; color: #c9d6e2; font-family: var(--f-mono); font-size: 0.8rem; }
+.present .pnav button { background: rgba(255,255,255,.1); color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+
+@media (max-width: 820px) {
+  .app { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 10px 16px; gap: 10px; }
+  .nav { display: flex; flex-wrap: wrap; } .side-foot { display: none; }
+  main { padding-inline: 16px; }
+  .grid2 { grid-template-columns: 1fr; }
+  .bar-row { grid-template-columns: 100px minmax(0, 1fr) 76px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><b>AFI Quant</b><span>Mesa central</span></div>
+    <nav class="nav" aria-label="Áreas" id="nav">
+      <button data-view="libro">Libro <span class="count" id="n-alert"></span></button>
+      <button data-view="clientes">Clientes <span class="count" id="n-cli"></span></button>
+      <button data-view="dd">Due diligence <span class="count" id="n-fund"></span></button>
+      <button data-view="pres">Presentaciones</button>
+    </nav>
+    <div class="side-foot"><span class="sim">Simulación</span><span id="asof"></span><span>Clientes e IPS ficticios. NAV, fichas CMF y carteras de fondos reales.</span></div>
+  </aside>
+  <main>
+    <!-- LIBRO -->
+    <section class="view" id="v-libro" hidden>
+      <div class="head"><div><div class="eyebrow">Libro de clientes</div><h1>¿En qué cuentas actuar hoy?</h1></div><div class="meta" id="libro-meta"></div></div>
+      <div class="kpis" id="libro-kpis"></div>
+      <div class="card">
+        <div class="head"><h2>Monitoreo por cuenta</h2><div class="legend"><span><i style="--c:var(--bad)"></i>Alerta</span><span><i style="--c:var(--warn)"></i>Atención</span><span><i style="--c:var(--ok)"></i>OK</span><span><i style="--c:var(--idle)"></i>Sin datos</span></div></div>
+        <div class="mon" id="mon"></div>
+        <p class="small muted" id="mon-note"></p>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Patrimonio por fondo</h2><div class="bars" id="aum-fund"></div><p class="small muted" id="aum-fund-note"></p></div>
+        <div class="card"><h2>Patrimonio por administradora</h2><div class="bars" id="aum-admin"></div><p class="small muted">Cada cliente tiene su propio límite por administradora en el IPS; aquí se ve la exposición del libro completo.</p></div>
+      </div>
+      <div class="card"><h2>Exposición de cada cliente</h2><div class="tw"><table class="t" id="expo"></table></div></div>
+    </section>
+
+    <!-- CLIENTES -->
+    <section class="view" id="v-clientes" hidden>
+      <div class="clist" id="clist"></div>
+      <div class="head"><div><div class="eyebrow" id="c-eyebrow"></div><h1 id="c-name"></h1></div><div class="meta" id="c-meta"></div></div>
+      <div class="kpis" id="c-kpis"></div>
+      <div class="card"><h2>Estado de la cuenta</h2><div class="dims" id="c-dims"></div></div>
+      <div class="card">
+        <div class="head"><h2>Patrimonio por fondo</h2><div class="legend" id="c-legend"></div></div>
+        <div id="cchart"></div>
+        <p class="small muted">Área apilada por fondo, valor diario. La línea punteada son los aportes netos; los marcadores, las decisiones.</p>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Metas</h2><div id="c-goals"></div></div>
+        <div class="card"><h2>Asignación por meta</h2><div id="c-alloc" style="display:grid;gap:10px"></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Riesgo frente al IPS</h2><div class="tw"><table class="t" id="c-lim"></table></div><p class="small muted" id="c-inv"></p></div>
+        <div class="card"><h2>Escenarios</h2><div class="bars" id="c-stress"></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Decisiones</h2><div id="c-news" style="display:grid;gap:8px;max-height:360px;overflow-y:auto"></div></div>
+        <div class="card"><h2>Datos que faltan</h2><div id="c-missing"></div></div>
+      </div>
+    </section>
+
+    <!-- DUE DILIGENCE -->
+    <section class="view" id="v-dd" hidden>
+      <div class="head"><div><div class="eyebrow">Due diligence centralizado</div><h1>Fondos del universo</h1></div><div class="meta" id="dd-meta"></div></div>
+      <p class="muted" style="max-width:90ch">Cada fondo se evalúa una sola vez y todos los clientes que lo tienen heredan su estado. El sistema calcula la parte cuantitativa y detecta señales; los pilares cualitativos y la revisión operacional (ODD) requieren DDQ, reuniones y verificación con terceros, y el estado en la Approved List lo decide el Comité.</p>
+      <div class="flist" id="flist"></div>
+      <div id="fund" class="view"></div>
+    </section>
+
+    <!-- PRESENTACIONES -->
+    <section class="view" id="v-pres" hidden>
+      <div class="head"><div><div class="eyebrow">Presentaciones para clientes</div><h1>Arma la presentación</h1></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="small muted" for="p-client">Cliente</label><select id="p-client" class="btn"></select></div></div>
+      <div class="builder">
+        <div style="display:grid;gap:14px">
+          <div class="card"><h3>Láminas</h3><p class="small muted">Marca lo que quieres mostrar y ordénalo. La portada y la lámina de supuestos y riesgos van siempre.</p><div class="catalog" id="catalog"></div></div>
+          <div class="card release">
+            <h3>Revisión y liberación</h3>
+            <p class="small muted">El sistema no se comunica con el cliente. Quien presenta revisa el contenido y lo libera; queda registrado con fecha, láminas y datos usados.</p>
+            <label><input type="checkbox" id="p-ack"> Revisé las cifras y el lenguaje, y comunicaré esta presentación yo mismo al cliente.</label>
+            <label for="p-note" class="small muted" style="display:block">Nota para el registro (opcional)</label>
+            <textarea id="p-note" rows="2" class="btn" style="text-align:left;resize:vertical"></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="p-release" disabled>Liberar y descargar PPTX</button><button class="btn" id="p-present">Presentar en pantalla</button></div>
+            <div id="p-msg" class="msg" hidden></div>
+            <h3 style="margin-top:6px">Liberaciones registradas</h3>
+            <div class="log" id="p-log"><div class="muted">Cargando registro…</div></div>
+          </div>
+        </div>
+        <div class="deck" id="deck"></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="present" id="present" hidden><div id="present-slide"></div><div class="pnav"><button id="pp">Anterior</button><span id="pn"></span><button id="pnx">Siguiente</button><button id="px">Salir</button></div></div>
+
+<script>
+const D = __DATA__;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const nf = (x, d = 0) => (x ?? 0).toLocaleString("es-CL", { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (x, d = 1) => x == null ? "—" : nf(x * 100, d) + "%";
+const spct = (x, d = 1) => x == null ? "—" : (x > 0 ? "+" : "") + nf(x * 100, d) + "%";
+const mm = x => x == null ? "—" : "$" + nf(x / 1e6, 1) + "M";
+const fdate = s => { if (!s) return "—"; const [y, m, d] = s.split("-"); return `${d}-${m}-${y}`; };
+const MON = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const fmonth = s => { const [y, m] = s.split("-"); return `${MON[+m - 1]} ${y}`; };
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const VEH = Object.keys(D.fondos);
+const vname = { MM: "Money market", RF: "Deuda corporativa", DP: "Facturas", RVL: "Acciones Chile", RVG: "Acciones globales" };
+const CL = D.clientes, FD = D.fondos, M = D.monitoreo, A = D.agregados;
+const ST_LABEL = { ok: "OK", atencion: "Atención", alerta: "Alerta", sin_datos: "Sin datos" };
+const store = { get(k, d) { try { const v = localStorage.getItem("mesa-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem("mesa-" + k, JSON.stringify(v)); } catch (e) {} } };
+const retLabel = r => r.meses >= 12 ? { v: pct(r.twr_anual, 1), l: "Rentabilidad anual", n: `${r.meses} meses · acumulada ${pct(r.twr, 1)}` } : { v: pct(r.twr, 1), l: "Rentabilidad acumulada", n: `${r.meses} meses: no se anualiza con menos de 12` };
+
+/* ---------- Navegación ---------- */
+const VIEWS = ["libro", "clientes", "dd", "pres"];
+const state = { view: "libro", client: store.get("client", M[0].id), fund: store.get("fund", "DP") };
+function go(v, push = true) {
+  if (!VIEWS.includes(v)) v = "libro";
+  state.view = v;
+  VIEWS.forEach(x => { $("v-" + x).hidden = x !== v; });
+  document.querySelectorAll("#nav button").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  if (push) { try { history.replaceState(null, "", "#" + v); } catch (e) {} }
+  store.set("view", v);
+  setTimeout(() => RENDER[v](), 0);
+}
+document.querySelectorAll("#nav button").forEach(b => b.addEventListener("click", () => go(b.dataset.view)));
+addEventListener("hashchange", () => { const h = location.hash.slice(1); if (VIEWS.includes(h) && h !== state.view) go(h, false); });
+function openClient(id) { state.client = id; store.set("client", id); go("clientes"); }
+
+$("asof").textContent = "Datos al " + fdate(D.as_of);
+$("n-alert").textContent = M.filter(a => a.conteo.alerta).length;
+$("n-cli").textContent = M.length;
+$("n-fund").textContent = VEH.length;
+
+/* ---------- Libro ---------- */
+function renderLibro() {
+  const withAlert = M.filter(a => a.conteo.alerta).length;
+  const sinDD = A.aum_en_fondos_sin_dd / A.aum;
+  $("libro-meta").innerHTML = `<span>Datos al <b>${fdate(D.as_of)}</b></span><span><b>${M.length}</b> cuentas</span><span>Escenarios <b>${esc(D.escenarios_version)}</b></span>`;
+  $("libro-kpis").innerHTML = [
+    ["Patrimonio administrado", mm(A.aum), `${M.length} clientes, ${Object.keys(A.por_asesor).length} asesores`],
+    ["Cuentas con alertas", `${withAlert} de ${M.length}`, "al menos una dimensión en alerta"],
+    ["En fondos sin DD completo", pct(sinDD, 0), `${mm(A.aum_en_fondos_sin_dd)}: falta IDD cualitativa y ODD`],
+    ["Aportes del período", mm(A.aportes), `retiros ${mm(A.retiros)}`],
+  ].map(([l, v, n]) => `<div class="kpi"><span class="l">${l}</span><span class="v">${v}</span><span class="n">${esc(n)}</span></div>`).join("");
+  const dims = Object.keys(D.dimensiones);
+  $("mon").innerHTML = `<table><thead><tr><th>Cuenta (en orden de prioridad)</th>${dims.map(d => `<th>${esc(D.dimensiones[d])}</th>`).join("")}</tr></thead><tbody>` +
+    M.map((a, i) => `<tr><td><div class="who" data-client="${a.id}" role="button" tabindex="0"><div class="num small muted">${i + 1} · ${a.id}</div><b>${esc(CL[a.id].nombre)}</b><div class="small muted">${esc(a.perfil)} · ${esc(a.asesor)} · ${mm(a.valor)}</div></div></td>` +
+      dims.map(d => { const x = a.dimensiones[d]; return `<td><div class="cell st-${x.estado}" tabindex="0" title="${esc(x.evidencia.join(" · "))}"><b>${ST_LABEL[x.estado]}</b><span>${esc(x.resumen)}</span></div></td>`; }).join("") + `</tr>`).join("") + `</tbody></table>`;
+  document.querySelectorAll("#mon .who").forEach(el => { el.addEventListener("click", () => openClient(el.dataset.client)); el.addEventListener("keydown", e => { if (e.key === "Enter") openClient(el.dataset.client); }); });
+  document.querySelectorAll("#mon .cell").forEach(el => el.addEventListener("click", () => el.classList.toggle("open")));
+  $("mon-note").textContent = D.notas.join(" ");
+  const maxF = Math.max(...Object.values(A.por_fondo));
+  $("aum-fund").innerHTML = VEH.filter(k => A.por_fondo[k]).sort((a, b) => A.por_fondo[b] - A.por_fondo[a]).map(k => {
+    const f = FD[k]; const sig = f.senales.length;
+    return `<div class="bar-row"><span><span class="sw" style="--c:var(--v-${k})"></span>${k} · ${vname[k]}</span><div class="track"><i style="width:${(A.por_fondo[k] / maxF * 100).toFixed(1)}%;background:var(--v-${k})"></i></div><span class="num small">${mm(A.por_fondo[k])}</span></div>
+      <div class="small muted" style="margin:-4px 0 4px 160px"><span class="pill ${sig ? "atencion" : "sin_datos"}">${esc(f.estado)}${sig ? ` · ${sig} señal${sig > 1 ? "es" : ""}` : ""}</span> ${f.tenedores.length} cliente${f.tenedores.length > 1 ? "s" : ""}</div>`; }).join("");
+  $("aum-fund-note").textContent = `Ningún fondo tiene el due diligence completo: ${pct(A.aum_en_fondos_sin_dd / A.aum, 0)} del libro está en fondos "Propuestos". Con señales cuantitativas: ${mm(A.aum_en_fondos_con_senales)}.`;
+  const adm = Object.entries(A.por_administradora).sort((a, b) => b[1] - a[1]); const maxA = adm[0][1];
+  $("aum-admin").innerHTML = adm.map(([n, v]) => `<div class="bar-row"><span>${esc(n)}</span><div class="track"><i style="width:${(v / maxA * 100).toFixed(1)}%;background:var(--accent)"></i></div><span class="num small">${pct(v / A.aum, 0)}</span></div>`).join("");
+  $("expo").innerHTML = `<thead><tr><th>Cliente</th><th>Patrimonio</th>${VEH.map(k => `<th>${k}</th>`).join("")}<th>Límite por administradora</th></tr></thead><tbody>` +
+    M.map(a => { const c = CL[a.id]; return `<tr><td><button class="link" data-client="${a.id}">${a.id}</button> <span class="muted small">${esc(c.perfil)}</span></td><td class="n">${mm(c.resumen.valor)}</td>${VEH.map(k => { const w = c.resumen.pesos[k] || 0; return `<td class="n" style="background:color-mix(in srgb, var(--v-${k}) ${Math.round(w * 70)}%, transparent)">${w ? pct(w, 0) : "·"}</td>`; }).join("")}<td class="n">${c.ips.admin_max == null ? "—" : nf(c.ips.admin_max) + "%"}</td></tr>`; }).join("") + `</tbody>`;
+  document.querySelectorAll("#expo [data-client]").forEach(b => b.addEventListener("click", () => openClient(b.dataset.client)));
+}
+
+/* ---------- Clientes ---------- */
+let cchart = null;
+function renderClientes() {
+  $("clist").innerHTML = M.map(a => `<button class="cbtn" data-c="${a.id}" aria-pressed="${a.id === state.client}"><b>${esc(CL[a.id].nombre)}</b><small>${a.id} · ${esc(a.perfil)} · ${mm(a.valor)}</small></button>`).join("");
+  document.querySelectorAll("#clist .cbtn").forEach(b => b.addEventListener("click", () => { state.client = b.dataset.c; store.set("client", state.client); renderClientes(); }));
+  const c = CL[state.client], r = c.resumen, acc = M.find(a => a.id === c.id);
+  $("c-eyebrow").textContent = `${c.id} · ${c.asesor}`;
+  $("c-name").textContent = c.nombre;
+  $("c-meta").innerHTML = `<span>${c.edad} años · perfil <b>${esc(c.perfil)}</b></span><span>Onboarding <b>${fdate(c.onboarding)}</b></span><span>IPS <b>${esc(c.ips.id)}</b></span>`;
+  const rl = retLabel(r);
+  $("c-kpis").innerHTML = [["Patrimonio", mm(r.valor), `aportado ${mm(r.aportado)} · retirado ${mm(r.retirado)}`],
+    [rl.l, rl.v, rl.n], ["Retorno personal (XIRR)", pct(r.xirr, 1), "con el momento real de sus aportes"],
+    ["Volatilidad esperada", pct(r.vol_ex_ante, 1), c.ips.limites.volatilidad_max_pct == null ? "sin límite en el IPS" : `límite IPS ${nf(c.ips.limites.volatilidad_max_pct)}%`]]
+    .map(([l, v, n]) => `<div class="kpi"><span class="l">${l}</span><span class="v">${v}</span><span class="n">${esc(n)}</span></div>`).join("");
+  $("c-dims").innerHTML = Object.entries(acc.dimensiones).map(([d, x]) => `<div class="cell st-${x.estado}" style="cursor:default"><b>${esc(D.dimensiones[d])} · ${ST_LABEL[x.estado]}</b><span style="-webkit-line-clamp:unset;display:block">${esc(x.resumen)}</span><span class="small" style="display:block;margin-top:4px">${esc(x.evidencia.slice(0, 4).join(" · "))}</span></div>`).join("");
+  $("c-legend").innerHTML = VEH.map(k => `<span><i style="--c:var(--v-${k})"></i>${k} · ${vname[k]}</span>`).join("");
+  drawClientChart(c);
+  $("c-goals").innerHTML = c.metas.map(g => {
+    if (g.estado === "cumplida") return `<div class="goal"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(g.nombre)}</b><span class="pill ok">Cumplida</span></div><div class="small muted">Objetivo ${mm(g.objetivo)} al ${fdate(g.fecha)}</div></div>`;
+    if (g.fecha == null) return `<div class="goal"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(g.nombre)}</b><span class="pill ${g.cobertura >= 1 ? "ok" : "alerta"}">Cobertura ${pct(g.cobertura, 0)}</span></div><div class="small muted">Reserva de ${mm(g.objetivo)}, disponible en 3 días hábiles</div></div>`;
+    const below = g.deseada != null && g.prob < g.deseada;
+    return `<div class="goal"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(g.nombre)}</b><span class="pill ${below ? "alerta" : "ok"}">${pct(g.prob, 0)}${g.deseada != null ? ` · deseada ${pct(g.deseada, 0)}` : ""}</span></div>
+      <div class="prob"><i style="width:${(g.prob * 100).toFixed(0)}%"></i>${g.deseada != null ? `<b style="left:${(g.deseada * 100).toFixed(0)}%"></b>` : ""}</div>
+      <div class="small muted">Objetivo ${mm(g.objetivo)} al ${fdate(g.fecha)} · hoy ${mm(g.valor)} · aporte ${mm(g.aporte)}/mes · mediana proyectada ${mm(g.p50)}</div></div>`; }).join("");
+  const stack = w => VEH.filter(k => w[k]).map(k => `<i style="width:${(w[k] * 100).toFixed(1)}%;background:var(--v-${k})" title="${k} ${pct(w[k], 0)}"></i>`).join("");
+  $("c-alloc").innerHTML = Object.entries(c.asignacion.sleeves).map(([g, s]) => { const goal = c.metas.find(x => x.key === g); return `<div style="display:grid;gap:4px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:.84rem"><b>${esc(goal ? goal.nombre : g)}</b><span class="num small muted">σ ${pct(s.vol, 1)} · tope ${pct(s.tope, 1)} (${s.fuente === "IPS" ? "IPS" : "horizonte " + s.horizonte})</span></div><div class="stack">${stack(s.pesos)}</div></div>`; }).join("") +
+    `<div style="display:grid;gap:4px;border-top:1px solid var(--line-soft);padding-top:8px"><b style="font-size:.84rem">Cartera total (objetivo al ${fdate(c.asignacion.fecha)})</b><div class="stack">${stack(c.asignacion.total)}</div></div>`;
+  $("c-lim").innerHTML = `<thead><tr><th>Métrica</th><th>Valor</th><th>Límite</th><th>Estado</th></tr></thead><tbody>` + c.limites.map(l => `<tr><td>${esc(l.metrica)}</td><td class="n">${pct(l.valor, 2)}</td><td class="n">${l.limite == null ? "—" : pct(l.limite, 0)}</td><td>${l.limite == null ? '<span class="pill sin_datos">Sin límite</span>' : l.estado === "dentro" ? '<span class="pill ok">Dentro</span>' : '<span class="pill alerta">Excede</span>'}</td></tr>`).join("") + `</tbody>`;
+  const inv = c.inverso;
+  $("c-inv").textContent = inv && !inv.no_calculado ? `Reverse stress: el escenario Stress (${pct(-inv.escenario_stress_escalado.perdida_escenario, 1)}) ${inv.escenario_stress_escalado.multiplicador < 1 ? "supera" : "no alcanza"} la caída tolerada de ${pct(inv.limite, 0)}; la renta variable tendría que caer ${pct(-inv.renta_variable_en_bloque.shock_necesario, 0)} para romperla.` : (inv ? inv.no_calculado : "");
+  const sc = Object.values(c.stress); const ext = Math.max(...sc.map(s => Math.abs(s.retorno)));
+  $("c-stress").innerHTML = sc.map(s => `<div class="bar-row"><span>${esc(s.nombre)}</span><div class="track"><i style="left:50%;width:${(Math.abs(s.retorno) / ext * 50).toFixed(1)}%;${s.retorno < 0 ? "transform:translateX(-100%);" : ""}background:${s.retorno < 0 ? "var(--bad)" : "var(--accent)"}"></i></div><span class="num small">${spct(s.retorno, 1)}</span></div>`).join("");
+  $("c-news").innerHTML = c.noticias.filter(n => !n.quiet).slice().reverse().map(n => `<div style="display:grid;gap:2px;padding-bottom:8px;border-bottom:1px solid var(--line-soft)"><span class="small num muted">${fdate(n.fecha)} · ${esc(n.categoria)}</span><b style="font-size:.88rem">${esc(n.titulo)}</b><span class="small muted">${esc(n.texto.slice(0, 260))}${n.texto.length > 260 ? "…" : ""}</span></div>`).join("");
+  $("c-missing").innerHTML = c.faltantes.length ? `<ul style="margin:0;padding-left:1.1em;display:grid;gap:4px">${c.faltantes.map(f => `<li>${esc(f)}</li>`).join("")}</ul><p class="small muted" style="margin-top:8px">Dato crítico faltante: el indicador que depende de él no se muestra (BLOCK, DF 6.1).</p>` : '<p class="muted">Sin datos críticos faltantes.</p>';
+}
+function monthly(c) { const out = []; const f = c.ts.fechas; for (let i = 0; i < f.length; i++) if (i === f.length - 1 || f[i].slice(0, 7) !== f[i + 1].slice(0, 7)) out.push(i); return out; }
+function drawClientChart(c) {
+  const el = $("cchart");
+  if (typeof LightweightCharts === "undefined") { el.innerHTML = '<p class="muted" style="padding:30px">No se pudo cargar la librería de gráficos.</p>'; return; }
+  if (cchart) { cchart.remove(); cchart = null; }
+  el.innerHTML = "";
+  const LW = LightweightCharts;
+  cchart = LW.createChart(el, { autoSize: true, layout: { background: { type: "solid", color: css("--surface") }, textColor: css("--ink-3"), fontFamily: "IBM Plex Mono, monospace", fontSize: 11 },
+    grid: { vertLines: { color: css("--line-soft") }, horzLines: { color: css("--line-soft") } }, rightPriceScale: { borderColor: css("--line") }, timeScale: { borderColor: css("--line") }, localization: { locale: "es-CL" } });
+  const fmt = { type: "custom", formatter: v => nf(v / 1e6, 0) + "M", minMove: 1e5 };
+  const cum = c.ts.fechas.map(() => 0);
+  const stacks = VEH.map(k => ({ k, v: c.ts.veh[k].map((x, i) => (cum[i] += x)) }));
+  let top = null;
+  stacks.slice().reverse().forEach(({ k, v }, j) => { const col = css("--v-" + k); const s = cchart.addSeries(LW.AreaSeries, { lineColor: col, topColor: col, bottomColor: col, lineWidth: 1, priceFormat: fmt, lastValueVisible: j === 0, priceLineVisible: false, crosshairMarkerVisible: false }); s.setData(c.ts.fechas.map((t, i) => ({ time: t, value: v[i] }))); if (j === 0) top = s; });
+  const net = cchart.addSeries(LW.LineSeries, { color: css("--ink-2"), lineWidth: 2, lineStyle: 2, lineType: 1, priceFormat: fmt, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+  net.setData(c.ts.fechas.map((t, i) => ({ time: t, value: c.ts.neto[i] })));
+  const days = new Set(c.ts.fechas);
+  LW.createSeriesMarkers(top, c.noticias.filter(n => !n.quiet && days.has(n.fecha)).map(n => ({ time: n.fecha, position: "aboveBar", shape: "circle", color: n.categoria === "Meta cumplida" ? css("--ok") : css("--accent"), text: String(n.n) })));
+  cchart.timeScale().fitContent();
+}
+
+/* ---------- Due diligence ---------- */
+function renderDD() {
+  $("dd-meta").innerHTML = `<span>${esc(D.fuente_fondos)}</span>`;
+  $("flist").innerHTML = VEH.map(k => { const f = FD[k]; return `<button class="fbtn" style="--c:var(--v-${k})" data-f="${k}" aria-pressed="${k === state.fund}"><span class="small num muted">${k} · ${esc(f.administradora)}</span><b style="font-size:.9rem">${esc(f.nombre)}</b><span style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill sin_datos">${esc(f.estado)}</span>${f.senales.length ? `<span class="pill atencion">${f.senales.length} señal${f.senales.length > 1 ? "es" : ""}</span>` : `<span class="pill ok">Sin señales</span>`}</span><span class="small muted">${mm(A.por_fondo[k] || 0)} del libro · ${f.tenedores.length} cliente${f.tenedores.length !== 1 ? "s" : ""}</span></button>`; }).join("");
+  document.querySelectorAll("#flist .fbtn").forEach(b => b.addEventListener("click", () => { state.fund = b.dataset.f; store.set("fund", state.fund); renderDD(); }));
+  const f = FD[state.fund], fi = f.ficha, ca = fi.cartera || {}, i = f.idd;
+  const row = (l, v) => `<dt>${l}</dt><dd>${v}</dd>`;
+  const idd = [["Datos de NAV", `${fdate(i.desde_datos)} a ${fdate(i.hasta)} (${nf(i.anios_datos, 1)} años)`], ["Retorno 1 año", pct(i.retorno_1a, 1)], ["Retorno 3 años (anual)", pct(i.retorno_3a, 1)], ["Retorno 5 años (anual)", pct(i.retorno_5a, 1)], ["Volatilidad 3 años", pct(i.volatilidad_3a, 1)], ["Máxima caída 3 años", pct(i.max_drawdown_3a, 1)], ["Sharpe 3 años", i.sharpe_3a == null ? "no se informa" : nf(i.sharpe_3a, 2)], ["Calmar 3 años", i.calmar_3a == null ? "no se informa" : nf(i.calmar_3a, 2)]];
+  const rel = f.relativo;
+  $("fund").innerHTML = `
+    <div class="card"><div class="head"><div><div class="eyebrow">${state.fund} · RUN ${esc(fi.rut)}</div><h2>${esc(fi.nombre_completo)}</h2></div><span class="pill sin_datos">Approved List: ${esc(f.estado)}</span></div>
+      <div class="steps">${Object.entries(f.etapas).map(([s, v]) => `<div class="stp ${v.split(" ")[0]}"><b>${esc(s)}</b><span class="small muted">${esc(v)}</span></div>`).join("")}</div>
+      <div class="msg${f.elegibilidad.elegible ? "" : " err"}"><b>${f.elegibilidad.elegible ? "Elegible" : "No elegible institucionalmente"}.</b> ${esc(f.elegibilidad.motivo)}. Nivel máximo en decisiones sobre este fondo: ${f.elegibilidad.nivel_maximo_decisiones_de_fondo}. Siguiente paso: ${esc(f.elegibilidad.propuesta)}.</div></div>
+    <div class="grid2">
+      <div class="card"><h3>Ficha (CMF)</h3><dl class="kv">${[["Administradora", esc(fi.administradora)], ["Tipo", `${esc(fi.tipo)} · ${esc(fi.tipo_fondo)} · ${esc(fi.inversionista)}`], ["Inicio de operaciones", fdate(fi.inicio_operaciones)], ["Reglamento vigente", fdate(fi.fecha_reglamento)], ["Rescate", esc(fi.liquidez_declarada || "sin dato en la ficha")], ["Clase", `${esc(f.clase)} · ${esc(f.subclase)}`]].map(([a, b]) => row(a, b)).join("")}</dl></div>
+      <div class="card"><h3>Cartera informada (IFRS ${esc(ca.periodo || "")})</h3><dl class="kv">${[["Tamaño", ca.aum_mm_clp ? "$" + nf(ca.aum_mm_clp) + " millones" : "—"], ["Posiciones", nf(ca.posiciones)], ["Mayor posición", `${esc(ca.mayor_emisor)}: ${nf(ca.mayor_emisor_pct, 1)}%`], ["5 mayores", ca.top5_pct == null ? "—" : nf(ca.top5_pct, 0) + "%"], ["Emisores efectivos", ca.efectivos == null ? "—" : nf(ca.efectivos, 1)], ["Composición", esc(ca.detalle)], ["Rotación último trimestre", `${ca.incorporaciones} entradas, ${ca.liquidaciones} salidas`]].map(([a, b]) => row(a, b)).join("")}</dl>${ca.look_through ? `<p class="small muted">${esc(ca.look_through)}</p>` : ""}</div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>IDD cuantitativa</h3><dl class="kv">${idd.map(([a, b]) => row(a, `<span class="num">${b}</span>`)).join("")}</dl>${i.advertencia ? `<p class="small" style="color:var(--warn)">${esc(i.advertencia)}</p>` : ""}
+        ${rel ? `<h3 style="margin-top:6px">Contra su índice pasivo (S&P/CLX IPSA, ${rel.n_obs} meses)</h3><dl class="kv">${[["Exceso anual", spct(rel.exceso_anual, 1)], ["Tracking error", pct(rel.tracking_error, 1)], ["Information ratio", nf(rel.information_ratio, 2)], ["Beta", nf(rel.beta, 2)], ["Meses sobre el índice", pct(rel.hit_ratio, 0)]].map(([a, b]) => row(a, `<span class="num">${b}</span>`)).join("")}</dl>` : '<p class="small muted">Sin índice pasivo elegible en el universo: no se calcula retorno relativo.</p>'}</div>
+      <div class="card"><h3>Señales tempranas (Checklist 2, Vol II)</h3>${f.senales.length ? f.senales.map(s => `<div class="sig"><b>${esc(s.tipo)}</b><span>${esc(s.senal)}</span><em>${esc(s.evidencia)}</em></div>`).join("") : '<p class="muted">Sin señales con los umbrales vigentes.</p>'}
+        <p class="small muted">Una señal no cambia el estado del fondo: abre el análisis de causa raíz (cíclico, estructural u operacional) antes de llevarlo al Comité. Una concentración puede ser legítima: un ETF que replica un índice global no es lo mismo que un fondo privado.</p></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>Pilares cualitativos</h3><div class="chk">${Object.entries(f.pilares).map(([p, v]) => `<span class="s">${esc(v.estado)}</span><span><b>${p}</b> · ${esc(v.que_falta)}<br><span class="small muted">Fuente: ${esc(v.fuente_requerida)}</span></span>`).join("")}</div>
+        <p class="small muted">No se infieren de la rentabilidad: hacerlo sería performance chasing (Vol II, Principio 4).</p></div>
+      <div class="card"><h3>Due diligence operacional (ODD)</h3><div class="chk">${Object.entries(f.odd.items).map(([p, v]) => `<span class="s">${esc(v)}</span><span>${esc(p)}</span>`).join("")}</div><p class="small" style="color:var(--bad)">${esc(f.odd.regla)}</p></div>
+    </div>
+    <div class="card"><h3>Clientes con este fondo</h3><div class="tw"><table class="t"><thead><tr><th>Cliente</th><th>Perfil</th><th>Valor en el fondo</th><th>Peso en su cartera</th></tr></thead><tbody>${f.tenedores.sort((a, b) => b.valor - a.valor).map(h => `<tr><td><button class="link" data-client="${h.cliente}">${h.cliente}</button></td><td>${esc(CL[h.cliente].perfil)}</td><td class="n">${mm(h.valor)}</td><td class="n">${pct(h.valor / CL[h.cliente].resumen.valor, 0)}</td></tr>`).join("") || '<tr><td colspan="4" class="muted">Ningún cliente lo tiene.</td></tr>'}</tbody></table></div></div>`;
+  document.querySelectorAll("#fund [data-client]").forEach(b => b.addEventListener("click", () => openClient(b.dataset.client)));
+}
+
+/* ---------- Presentaciones ---------- */
+const SLIDES = [
+  { id: "portada", t: "Portada", d: "Nombre, fecha de los datos y asesor", fixed: true },
+  { id: "resumen", t: "Su patrimonio hoy", d: "Valor, aportes, ganancia y rentabilidad" },
+  { id: "evolucion", t: "Cómo ha evolucionado", d: "Patrimonio por fondo mes a mes" },
+  { id: "metas", t: "Sus metas", d: "Probabilidad de lograr cada una" },
+  { id: "cartera", t: "Cómo está invertido", d: "Distribución actual y objetivo por meta" },
+  { id: "rentabilidad", t: "Rentabilidad frente a su referencia", d: "Cartera frente a su benchmark" },
+  { id: "riesgo", t: "Qué pasaría en un mal escenario", d: "Escenarios y episodios históricos" },
+  { id: "movimientos", t: "Sus aportes y retiros", d: "Flujos y su retorno personal" },
+  { id: "decisiones", t: "Lo que hicimos en el período", d: "Revisiones y rebalanceos" },
+  { id: "proximos", t: "Próximos pasos", d: "Texto que escribe el asesor" },
+  { id: "aviso", t: "Supuestos, riesgos y aviso", d: "Cómo se calcularon las cifras", fixed: true },
+];
+const DEFAULT_ON = ["portada", "resumen", "evolucion", "metas", "cartera", "riesgo", "proximos", "aviso"];
+const PAL = { MM: "2A78D6", RF: "EB6834", DP: "1BAF7A", RVL: "EDA100", RVG: "E87BA4" };
+const pres = { order: [], on: new Set(), idx: 0 };
+function loadPres() {
+  const saved = store.get("pres-" + state.client, null);
+  pres.order = saved && saved.order ? saved.order.filter(id => SLIDES.some(s => s.id === id)) : SLIDES.map(s => s.id);
+  SLIDES.forEach(s => { if (!pres.order.includes(s.id)) pres.order.push(s.id); });
+  pres.on = new Set(saved && saved.on ? saved.on : DEFAULT_ON);
+  SLIDES.filter(s => s.fixed).forEach(s => pres.on.add(s.id));
+  pres.order = ["portada", ...pres.order.filter(x => x !== "portada" && x !== "aviso"), "aviso"];
+  pres.notes = store.get("notes-" + state.client, "");
+}
+function savePres() { store.set("pres-" + state.client, { order: pres.order, on: [...pres.on] }); }
+const chosen = () => pres.order.filter(id => pres.on.has(id));
+function goalSentence(g) {
+  if (g.estado === "cumplida") return `Meta cumplida el ${fdate(g.fecha)}.`;
+  if (g.fecha == null) return `Reserva disponible: cubre el ${pct(g.cobertura, 0)} del monto definido.`;
+  return `En ${Math.round(g.prob * 100)} de cada 100 escenarios simulados se alcanza la meta${g.deseada != null ? ` (usted pidió al menos ${Math.round(g.deseada * 100)})` : ""}.`;
+}
+function slideHTML(id, c, num, total) {
+  const r = c.resumen, foot = `<div class="foot"><span>${esc(c.nombre)} · datos al ${fdate(D.as_of)}</span><span>Cliente ficticio · simulación</span><span>${num} / ${total}</span></div>`;
+  const wrap = (kick, title, body, cls = "") => `<div class="slide ${cls}"><div class="in"><div><div class="kick">${kick}</div><h2>${title}</h2></div><div class="body">${body}</div>${foot}</div></div>`;
+  const rl = retLabel(r), gain = r.valor - r.aportado + r.retirado;
+  switch (id) {
+    case "portada": return `<div class="slide cover"><div class="in"><div style="display:grid;gap:1.4cqw;align-content:end;color:#fff"><div class="kick">Revisión de su patrimonio</div><h1>${esc(c.nombre)}</h1><div style="font-size:1.7cqw;color:#c9d6e2">Datos al ${fdate(D.as_of)} · ${esc(c.asesor)}</div></div><div></div>${foot}</div></div>`;
+    case "resumen": return wrap("Resumen", "Su patrimonio hoy", `<div class="tiles">${[["Valor actual", mm(r.valor)], ["Aportado (neto de retiros)", mm(r.aportado - r.retirado)], ["Ganancia", mm(gain)], [rl.l, rl.v]].map(([l, v]) => `<div class="tile"><span>${l}</span><b class="big">${v}</b></div>`).join("")}</div><p>Desde ${fmonth(c.onboarding.slice(0, 7))} usted aportó ${mm(r.aportado)} y retiró ${mm(r.retirado)}. Hoy su cartera vale ${mm(r.valor)}: una ganancia de ${mm(gain)}.</p><p style="color:#4a5866">${rl.l}: ${rl.v} (${esc(rl.n)}). Considerando cuándo hizo cada aporte, su retorno personal fue ${pct(r.xirr, 1)} anual.</p>`);
+    case "evolucion": return wrap("Evolución", "Cómo ha evolucionado su patrimonio", evoSVG(c) + `<div style="display:flex;gap:2cqw;flex-wrap:wrap;font-size:1.2cqw">${VEH.filter(k => c.ts.veh[k].some(x => x > 0)).map(k => `<span><i style="display:inline-block;width:1.2cqw;height:1.2cqw;background:#${PAL[k]};border-radius:0.2cqw;margin-right:0.5cqw"></i>${vname[k]}</span>`).join("")}<span>- - - Aportes netos</span></div>`);
+    case "metas": return wrap("Metas", "Sus metas", `<table><thead><tr><th>Meta</th><th>Monto</th><th>Fecha</th><th>Hoy</th><th>Probabilidad</th></tr></thead><tbody>${c.metas.map(g => `<tr><td>${esc(g.nombre)}</td><td>${mm(g.objetivo)}</td><td>${g.fecha ? fdate(g.fecha) : "siempre disponible"}</td><td>${g.estado === "cumplida" ? "cumplida" : mm(g.valor)}</td><td>${g.prob == null ? (g.cobertura == null ? "—" : "cubierta " + pct(g.cobertura, 0)) : pct(g.prob, 0)}</td></tr>`).join("")}</tbody></table><div style="display:grid;gap:0.8cqw">${c.metas.map(g => `<p><b>${esc(g.nombre)}.</b> ${goalSentence(g)}</p>`).join("")}</div>`);
+    case "cartera": return wrap("Cartera", "Cómo está invertido", `<div class="row2"><div>${allocSVG(r.pesos, r.politica)}</div><div style="display:grid;gap:1cqw">${Object.entries(c.asignacion.sleeves).map(([g, s]) => { const goal = c.metas.find(x => x.key === g); return `<p><b>${esc(goal ? goal.nombre : g)}:</b> ${Object.entries(s.pesos).sort((a, b) => b[1] - a[1]).map(([k, w]) => `${vname[k].toLowerCase()} ${pct(w, 0)}`).join(", ")}.</p>`; }).join("")}<p style="color:#4a5866">Cada meta tiene su propia cartera según su plazo: lo que se necesita pronto va en instrumentos estables; lo de largo plazo puede asumir más variación.</p></div></div>`);
+    case "rentabilidad": { const b = c.benchmark.relativo; return wrap("Rentabilidad", "Rentabilidad frente a su referencia", `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">${[["Su cartera (anual)", pct(b.retorno_portafolio_anual, 1)], ["Su referencia (anual)", pct(b.retorno_benchmark_anual, 1)], ["Diferencia", spct(b.exceso_anual, 1)]].map(([l, v]) => `<div class="tile"><span>${l}</span><b class="big">${v}</b></div>`).join("")}</div><p>La referencia es una combinación de índices con la misma distribución objetivo que su cartera. Entre ${fmonth(b.desde.slice(0, 7))} y ${fmonth(b.hasta.slice(0, 7))} su cartera la superó en ${pct(b.hit_ratio, 0)} de los meses.</p><p style="color:#4a5866">Todavía no hay 36 meses de historia para medir cuánto se aparta de forma estable de su referencia; lo informaremos cuando los haya.</p>${r.meses < 12 ? `<p style="color:#9a5b00">Con menos de 12 meses, las cifras anuales son una extrapolación; la rentabilidad acumulada es ${pct(r.twr, 1)}.</p>` : ""}`); }
+    case "riesgo": { const s = c.stress; const pick = ["adverso", "stress", "covid", "estallido"].filter(k => s[k]); return wrap("Riesgo", "Qué pasaría en un mal escenario", `<div class="row2"><div>${stressSVG(pick.map(k => s[k]))}</div><div style="display:grid;gap:1cqw">${pick.map(k => `<p><b>${esc(s[k].nombre)}:</b> su cartera ${s[k].retorno < 0 ? "bajaría" : "subiría"} ${pct(Math.abs(s[k].retorno), 1)} (${mm(Math.abs(s[k].pnl))}).</p>`).join("")}<p style="color:#4a5866">Los escenarios Adverso y Stress son supuestos a 12 meses; los otros repiten lo que ocurrió en esos episodios con su cartera actual.</p></div></div>`); }
+    case "movimientos": return wrap("Flujos", "Sus aportes y retiros", `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">${[["Aportes", mm(c.flujos.aportes_externos)], ["Retiros", mm(c.flujos.retiros_externos)], ["Ganancia neta", mm(c.flujos.ganancia_neta)]].map(([l, v]) => `<div class="tile"><span>${l}</span><b class="big">${v}</b></div>`).join("")}</div><p>La rentabilidad de la cartera (${pct(r.meses >= 12 ? r.twr_anual : r.twr, 1)}${r.meses >= 12 ? " anual" : " acumulada"}) mide cómo se gestionó el dinero. Su retorno personal (${pct(r.xirr, 1)} anual) incluye además el momento en que usted aportó o retiró.</p>`);
+    case "decisiones": { const ns = c.noticias.filter(n => !n.quiet && n.categoria !== "Cierre"); return wrap("Gestión", "Lo que hicimos en el período", `<table><thead><tr><th>Fecha</th><th>Qué</th><th style="text-align:left">Detalle</th></tr></thead><tbody>${ns.slice(-7).map(n => `<tr><td>${fdate(n.fecha)}</td><td>${esc(n.categoria)}</td><td style="text-align:left">${esc(n.titulo)}</td></tr>`).join("")}</tbody></table><p style="color:#4a5866">Revisamos su cartera ${c.noticias.filter(n => n.categoria === "Rebalanceo" || n.categoria === "Sin operar").length} veces; en ${c.noticias.filter(n => n.categoria === "Rebalanceo").length} se ajustó la distribución porque se había alejado de su objetivo.</p>`); }
+    case "proximos": return wrap("Próximos pasos", "Próximos pasos", `<textarea id="notes-${num}" data-notes aria-label="Próximos pasos">${esc(pres.notes || "")}</textarea>`);
+    case "aviso": return wrap("Aviso", "Supuestos, riesgos y aviso", `<div style="display:grid;gap:0.9cqw;font-size:1.3cqw"><p>Cifras al ${fdate(D.as_of)}, calculadas con los valores cuota de cada fondo (dividendos reinvertidos). La rentabilidad de la cartera no considera el momento de sus aportes; el retorno personal sí.</p><p>Las probabilidades de las metas vienen de 5.000 escenarios simulados con supuestos de mercado; no son una promesa. Los escenarios adversos son hipotéticos o repiten episodios pasados.</p><p>Rentabilidades pasadas no garantizan rentabilidades futuras. Las inversiones pueden perder valor.</p><p>Faltan datos que limitan algunos análisis: ${esc(c.faltantes.slice(0, 3).join("; ") || "ninguno crítico")}.</p><p>Este documento lo revisa y presenta su asesor; no es una recomendación automática. <b>Cliente y supuestos ficticios: material de simulación.</b></p></div>`);
+  }
+  return "";
+}
+function evoSVG(c) {
+  const idx = monthly(c), W = 1000, H = 330, m = { l: 70, r: 20, t: 10, b: 30 };
+  const tot = idx.map(i => VEH.reduce((a, k) => a + c.ts.veh[k][i], 0)); const ymax = Math.max(...tot, ...idx.map(i => c.ts.neto[i])) * 1.08;
+  const x = j => m.l + j / Math.max(1, idx.length - 1) * (W - m.l - m.r), y = v => m.t + (1 - v / ymax) * (H - m.t - m.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Patrimonio por fondo mes a mes">`;
+  for (let t = 0; t <= 4; t++) { const v = ymax * t / 4; s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="#e3e8ed"/><text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" font-size="13">${nf(v / 1e6, 0)}M</text>`; }
+  const cum = idx.map(() => 0);
+  VEH.forEach(k => { const lo = cum.slice(); idx.forEach((i, j) => cum[j] += c.ts.veh[k][i]); if (!c.ts.veh[k].some(v => v > 0)) return;
+    s += `<path d="${idx.map((i, j) => `${j ? "L" : "M"}${x(j)},${y(cum[j])}`).join("")}${idx.map((i, j) => `L${x(idx.length - 1 - j)},${y(lo[idx.length - 1 - j])}`).join("")}Z" fill="#${PAL[k]}"/>`; });
+  s += `<path d="${idx.map((i, j) => `${j ? "L" : "M"}${x(j)},${y(c.ts.neto[i])}`).join("")}" fill="none" stroke="#16212c" stroke-width="2.5" stroke-dasharray="7 5"/>`;
+  const step = Math.max(1, Math.ceil(idx.length / 7)); idx.forEach((i, j) => { if (j % step === 0) s += `<text x="${x(j)}" y="${H - 8}" text-anchor="middle" font-size="13">${fmonth(c.ts.fechas[i].slice(0, 7))}</text>`; });
+  return s + "</svg>";
+}
+function allocSVG(w, p) {
+  const ks = VEH.filter(k => (w[k] || 0) > 0 || (p[k] || 0) > 0), W = 520, rh = 46, H = ks.length * rh + 30, l = 170;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Distribución actual y objetivo">`;
+  ks.forEach((k, i) => { const cy = i * rh + 20; s += `<text x="0" y="${cy + 5}" font-size="15">${vname[k]}</text><rect x="${l}" y="${cy - 9}" width="${(W - l - 60) * (w[k] || 0)}" height="18" rx="3" fill="#${PAL[k]}"/><line x1="${l + (W - l - 60) * (p[k] || 0)}" x2="${l + (W - l - 60) * (p[k] || 0)}" y1="${cy - 14}" y2="${cy + 14}" stroke="#16212c" stroke-width="2.5"/><text x="${W - 50}" y="${cy + 5}" font-size="15">${pct(w[k] || 0, 0)}</text>`; });
+  return s + `<text x="${l}" y="${H - 4}" font-size="12">Barra: hoy · línea: objetivo</text></svg>`;
+}
+function stressSVG(list) {
+  const W = 520, rh = 54, H = list.length * rh + 10, mid = 260, ext = Math.max(...list.map(s => Math.abs(s.retorno))) || 1;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Variación de la cartera por escenario"><line x1="${mid}" x2="${mid}" y1="0" y2="${H}" stroke="#9aa7b4"/>`;
+  list.forEach((sc, i) => { const cy = i * rh + 28, w = Math.abs(sc.retorno) / ext * 200; const x0 = sc.retorno < 0 ? mid - w : mid;
+    s += `<text x="${sc.retorno < 0 ? mid + 10 : mid - 10}" y="${cy - 14}" text-anchor="${sc.retorno < 0 ? "start" : "end"}" font-size="14">${esc(sc.nombre)}</text><rect x="${x0}" y="${cy - 6}" width="${w}" height="20" rx="3" fill="${sc.retorno < 0 ? "#b3261e" : "#1d5b8f"}"/><text x="${sc.retorno < 0 ? x0 - 8 : x0 + w + 8}" y="${cy + 9}" text-anchor="${sc.retorno < 0 ? "end" : "start"}" font-size="15" fill="#16212c">${spct(sc.retorno, 1)}</text>`; });
+  return s + "</svg>";
+}
+function renderPres() {
+  $("p-client").innerHTML = M.map(a => `<option value="${a.id}" ${a.id === state.client ? "selected" : ""}>${esc(CL[a.id].nombre)} (${a.id})</option>`).join("");
+  loadPres();
+  renderCatalog(); renderDeck(); renderLog();
+}
+function renderCatalog() {
+  $("catalog").innerHTML = pres.order.map((id, i) => { const s = SLIDES.find(x => x.id === id); const on = pres.on.has(id);
+    return `<div class="sitem${on ? "" : " off"}"><input type="checkbox" id="chk-${id}" data-id="${id}" ${on ? "checked" : ""} ${s.fixed ? "disabled" : ""}><label for="chk-${id}">${esc(s.t)}<small>${esc(s.d)}</small></label>${s.fixed ? '<span class="lock">siempre</span>' : `<span class="mv"><button data-up="${id}" aria-label="Subir ${esc(s.t)}" ${i <= 1 ? "disabled" : ""}>▲</button><button data-down="${id}" aria-label="Bajar ${esc(s.t)}" ${i >= pres.order.length - 2 ? "disabled" : ""}>▼</button></span>`}</div>`; }).join("");
+  document.querySelectorAll("#catalog input[type=checkbox]").forEach(cb => cb.addEventListener("change", () => { cb.checked ? pres.on.add(cb.dataset.id) : pres.on.delete(cb.dataset.id); savePres(); renderCatalog(); renderDeck(); }));
+  const move = (id, d) => { const i = pres.order.indexOf(id), j = i + d; if (j < 1 || j > pres.order.length - 2) return; [pres.order[i], pres.order[j]] = [pres.order[j], pres.order[i]]; savePres(); renderCatalog(); renderDeck(); };
+  document.querySelectorAll("#catalog [data-up]").forEach(b => b.addEventListener("click", () => move(b.dataset.up, -1)));
+  document.querySelectorAll("#catalog [data-down]").forEach(b => b.addEventListener("click", () => move(b.dataset.down, 1)));
+}
+function renderDeck() {
+  const c = CL[state.client], ids = chosen();
+  $("deck").innerHTML = ids.map((id, i) => slideHTML(id, c, i + 1, ids.length)).join("");
+  document.querySelectorAll("[data-notes]").forEach(t => t.addEventListener("input", () => { pres.notes = t.value; store.set("notes-" + state.client, t.value); }));
+}
+$("p-client").addEventListener("change", e => { state.client = e.target.value; store.set("client", state.client); $("p-ack").checked = false; $("p-release").disabled = true; renderPres(); });
+$("p-ack").addEventListener("change", e => { $("p-release").disabled = !e.target.checked; });
+
+/* Presentar en pantalla */
+function showPresent(i) { const ids = chosen(); pres.idx = Math.max(0, Math.min(ids.length - 1, i)); $("present-slide").innerHTML = slideHTML(ids[pres.idx], CL[state.client], pres.idx + 1, ids.length); $("pn").textContent = `${pres.idx + 1} / ${ids.length}`; }
+$("p-present").addEventListener("click", () => { $("present").hidden = false; showPresent(0); const el = $("present"); if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); });
+const closePresent = () => { $("present").hidden = true; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); };
+$("px").addEventListener("click", closePresent); $("pp").addEventListener("click", () => showPresent(pres.idx - 1)); $("pnx").addEventListener("click", () => showPresent(pres.idx + 1));
+addEventListener("keydown", e => { if ($("present").hidden) return; if (e.key === "ArrowRight" || e.key === " ") showPresent(pres.idx + 1); if (e.key === "ArrowLeft") showPresent(pres.idx - 1); if (e.key === "Escape") closePresent(); });
+
+/* Registro de liberaciones (db) y PPTX (downloads) */
+let db = null, user = null, downloads = null, logUnsub = null, capsReady = false;
+const msg = (t, err = false) => { const m = $("p-msg"); m.hidden = false; m.className = "msg" + (err ? " err" : ""); m.textContent = t; };
+async function initCaps() {
+  try { db = await window.claude?.use?.("db"); } catch (e) { db = null; }
+  try { user = await window.claude?.use?.("user"); } catch (e) { user = null; }
+  try { downloads = await window.claude?.use?.("downloads"); } catch (e) { downloads = null; }
+  capsReady = true;
+  renderLog();
+}
+async function renderLog() {
+  const box = $("p-log");
+  if (!capsReady) { box.innerHTML = '<div class="muted">Conectando con el registro compartido…</div>'; return; }
+  if (!db) { box.innerHTML = '<div class="muted">El registro compartido no está disponible en esta vista. La descarga sigue funcionando si la vista lo permite.</div>'; return; }
+  if (logUnsub) { logUnsub(); logUnsub = null; }
+  logUnsub = db.collection("liberaciones").orderBy("fecha", "desc").limit(50).onSnapshot(async snap => {
+    const rows = snap.docs.map(d => d.data());
+    let names = {};
+    try { if (user) names = await user.profiles([...new Set(rows.map(r => r.por).filter(Boolean))]); } catch (e) {}
+    box.innerHTML = rows.length ? rows.map(r => `<div><b>${esc(r.cliente)}</b> · ${esc(new Date(r.fecha).toLocaleString("es-CL"))}<br><span class="muted">${esc((names[r.por] && names[r.por].name) || "Un asesor")} · ${r.laminas.length} láminas · datos al ${fdate(r.datos_al)}${r.nota ? " · " + esc(r.nota) : ""}</span></div>`).join("") : '<div class="muted">Todavía no hay presentaciones liberadas. La primera aparecerá aquí con quién la liberó y qué incluía.</div>';
+  }, () => { box.innerHTML = '<div class="muted">No se pudo leer el registro compartido.</div>'; });
+}
+async function buildPptx(c, ids) {
+  const P = new PptxGenJS(); P.layout = "LAYOUT_WIDE"; P.title = `Revisión de patrimonio · ${c.nombre}`;
+  const FONT = "Calibri", INK = "16212C", MUT = "6F7D8B", ACC = "1D5B8F";
+  const r = c.resumen, rl = retLabel(r), gain = r.valor - r.aportado + r.retirado;
+  ids.forEach((id, n) => {
+    const s = P.addSlide(); const total = ids.length;
+    const head = (k, t) => { s.addText(k.toUpperCase(), { x: 0.6, y: 0.35, w: 12, h: 0.3, fontFace: FONT, fontSize: 11, color: ACC, charSpacing: 2 }); s.addText(t, { x: 0.6, y: 0.65, w: 12, h: 0.7, fontFace: FONT, fontSize: 28, bold: true, color: INK }); };
+    s.addText(`${c.nombre} · datos al ${fdate(D.as_of)}    ·    Cliente ficticio · simulación    ·    ${n + 1} / ${total}`, { x: 0.6, y: 7.0, w: 12.1, h: 0.3, fontFace: FONT, fontSize: 9, color: MUT });
+    const tiles = (arr, y = 1.6) => arr.forEach(([l, v], i) => { const w = 12.1 / arr.length - 0.2; s.addShape(P.ShapeType.roundRect, { x: 0.6 + i * (w + 0.2), y, w, h: 1.4, fill: { color: "F3F5F7" }, line: { color: "F3F5F7" }, rectRadius: 0.08 }); s.addText([{ text: l + "\n", options: { fontSize: 12, color: "4A5866" } }, { text: v, options: { fontSize: 26, color: INK, bold: true } }], { x: 0.75 + i * (w + 0.2), y: y + 0.1, w: w - 0.3, h: 1.2, fontFace: FONT, valign: "middle" }); });
+    const para = (t, y, h = 0.6, o = {}) => s.addText(t, Object.assign({ x: 0.6, y, w: 12.1, h, fontFace: FONT, fontSize: 15, color: "26323D", valign: "top" }, o));
+    if (id === "portada") { s.background = { color: "13212E" }; s.addText("REVISIÓN DE SU PATRIMONIO", { x: 0.8, y: 2.4, w: 11, h: 0.4, fontFace: FONT, fontSize: 14, color: "9FC3E3", charSpacing: 3 }); s.addText(c.nombre, { x: 0.8, y: 2.9, w: 11.5, h: 1.2, fontFace: FONT, fontSize: 44, bold: true, color: "FFFFFF" }); s.addText(`Datos al ${fdate(D.as_of)} · ${c.asesor}`, { x: 0.8, y: 4.1, w: 11, h: 0.5, fontFace: FONT, fontSize: 18, color: "C9D6E2" }); return; }
+    if (id === "resumen") { head("Resumen", "Su patrimonio hoy"); tiles([["Valor actual", mm(r.valor)], ["Aportado (neto)", mm(r.aportado - r.retirado)], ["Ganancia", mm(gain)], [rl.l, rl.v]]); para(`Desde ${fmonth(c.onboarding.slice(0, 7))} usted aportó ${mm(r.aportado)} y retiró ${mm(r.retirado)}. Hoy su cartera vale ${mm(r.valor)}: una ganancia de ${mm(gain)}.`, 3.4); para(`${rl.l}: ${rl.v} (${rl.n}). Considerando cuándo hizo cada aporte, su retorno personal fue ${pct(r.xirr, 1)} anual.`, 4.2, 0.6, { color: "4A5866" }); }
+    if (id === "evolucion") { head("Evolución", "Cómo ha evolucionado su patrimonio"); const idx = monthly(c); const labels = idx.map(i => fmonth(c.ts.fechas[i].slice(0, 7)));
+      const series = VEH.filter(k => c.ts.veh[k].some(v => v > 0)).map(k => ({ name: vname[k], labels, values: idx.map(i => Math.round(c.ts.veh[k][i] / 1e6 * 10) / 10) }));
+      s.addChart(P.ChartType.area, series, { x: 0.6, y: 1.5, w: 12.1, h: 5.2, barGrouping: "stacked", chartColors: VEH.filter(k => c.ts.veh[k].some(v => v > 0)).map(k => PAL[k]), showLegend: true, legendPos: "b", legendFontSize: 11, catAxisLabelFontSize: 10, valAxisLabelFontSize: 10, valAxisLabelFormatCode: '#,##0"M"', catAxisLabelFrequency: Math.max(1, Math.ceil(idx.length / 8)) }); }
+    if (id === "metas") { head("Metas", "Sus metas"); s.addTable([[{ text: "Meta", options: { bold: true } }, { text: "Monto", options: { bold: true } }, { text: "Fecha", options: { bold: true } }, { text: "Probabilidad", options: { bold: true } }], ...c.metas.map(g => [g.nombre, mm(g.objetivo), g.fecha ? fdate(g.fecha) : "siempre disponible", g.estado === "cumplida" ? "cumplida" : g.prob == null ? (g.cobertura == null ? "—" : "cubierta " + pct(g.cobertura, 0)) : pct(g.prob, 0)])], { x: 0.6, y: 1.5, w: 12.1, fontFace: FONT, fontSize: 13, color: INK, border: { type: "solid", color: "E3E8ED", pt: 0.75 } }); para(c.metas.map(g => `${g.nombre}. ${goalSentence(g)}`).join("\n"), 1.6 + 0.45 * (c.metas.length + 1) + 0.3, 2.5, { fontSize: 14 }); }
+    if (id === "cartera") { head("Cartera", "Cómo está invertido"); const ks = VEH.filter(k => (r.pesos[k] || 0) > 0 || (r.politica[k] || 0) > 0);
+      s.addChart(P.ChartType.bar, [{ name: "Hoy", labels: ks.map(k => vname[k]), values: ks.map(k => Math.round((r.pesos[k] || 0) * 1000) / 10) }, { name: "Objetivo", labels: ks.map(k => vname[k]), values: ks.map(k => Math.round((r.politica[k] || 0) * 1000) / 10) }], { x: 0.6, y: 1.5, w: 6.4, h: 5.2, barDir: "bar", chartColors: [ACC, "C9D3DD"], showLegend: true, legendPos: "b", valAxisLabelFormatCode: '0"%"', catAxisLabelFontSize: 11, valAxisLabelFontSize: 10, showValue: true, dataLabelFormatCode: '0"%"', dataLabelFontSize: 9 });
+      s.addText(Object.entries(c.asignacion.sleeves).map(([g, sl]) => { const goal = c.metas.find(x => x.key === g); return `${goal ? goal.nombre : g}: ${Object.entries(sl.pesos).sort((a, b) => b[1] - a[1]).map(([k, w]) => `${vname[k].toLowerCase()} ${pct(w, 0)}`).join(", ")}.`; }).join("\n\n") + "\n\nCada meta tiene su propia cartera según su plazo.", { x: 7.3, y: 1.6, w: 5.4, h: 5, fontFace: FONT, fontSize: 13, color: "26323D", valign: "top" }); }
+    if (id === "rentabilidad") { const b = c.benchmark.relativo; head("Rentabilidad", "Rentabilidad frente a su referencia"); tiles([["Su cartera (anual)", pct(b.retorno_portafolio_anual, 1)], ["Su referencia (anual)", pct(b.retorno_benchmark_anual, 1)], ["Diferencia", spct(b.exceso_anual, 1)]]); para(`La referencia combina índices con la misma distribución objetivo que su cartera. Entre ${fmonth(b.desde.slice(0, 7))} y ${fmonth(b.hasta.slice(0, 7))} su cartera la superó en ${pct(b.hit_ratio, 0)} de los meses.`, 3.4); para("Todavía no hay 36 meses de historia para medir cuánto se aparta de forma estable de su referencia." + (r.meses < 12 ? ` Con menos de 12 meses, las cifras anuales son una extrapolación; la acumulada es ${pct(r.twr, 1)}.` : ""), 4.3, 0.8, { color: "4A5866" }); }
+    if (id === "riesgo") { head("Riesgo", "Qué pasaría en un mal escenario"); const pick = ["adverso", "stress", "covid", "estallido"].filter(k => c.stress[k]).map(k => c.stress[k]);
+      s.addChart(P.ChartType.bar, [{ name: "Variación de la cartera", labels: pick.map(x => x.nombre), values: pick.map(x => Math.round(x.retorno * 1000) / 10) }], { x: 0.6, y: 1.5, w: 6.4, h: 5.2, barDir: "bar", chartColors: ["B3261E"], valAxisLabelFormatCode: '0"%"', showValue: true, dataLabelFormatCode: '0.0"%"', catAxisLabelFontSize: 11, showLegend: false });
+      s.addText(pick.map(x => `${x.nombre}: su cartera ${x.retorno < 0 ? "bajaría" : "subiría"} ${pct(Math.abs(x.retorno), 1)} (${mm(Math.abs(x.pnl))}).`).join("\n\n") + "\n\nAdverso y Stress son supuestos a 12 meses; los otros repiten episodios reales con su cartera actual.", { x: 7.3, y: 1.6, w: 5.4, h: 5, fontFace: FONT, fontSize: 13, color: "26323D", valign: "top" }); }
+    if (id === "movimientos") { head("Flujos", "Sus aportes y retiros"); tiles([["Aportes", mm(c.flujos.aportes_externos)], ["Retiros", mm(c.flujos.retiros_externos)], ["Ganancia neta", mm(c.flujos.ganancia_neta)]]); para(`La rentabilidad de la cartera mide cómo se gestionó el dinero. Su retorno personal (${pct(r.xirr, 1)} anual) incluye además el momento en que usted aportó o retiró.`, 3.4); }
+    if (id === "decisiones") { head("Gestión", "Lo que hicimos en el período"); const ns = c.noticias.filter(x => !x.quiet && x.categoria !== "Cierre").slice(-7); s.addTable([[{ text: "Fecha", options: { bold: true } }, { text: "Qué", options: { bold: true } }, { text: "Detalle", options: { bold: true } }], ...ns.map(x => [fdate(x.fecha), x.categoria, x.titulo])], { x: 0.6, y: 1.5, w: 12.1, colW: [1.8, 2.4, 7.9], fontFace: FONT, fontSize: 12, color: INK, border: { type: "solid", color: "E3E8ED", pt: 0.75 } }); }
+    if (id === "proximos") { head("Próximos pasos", "Próximos pasos"); para(pres.notes || "(sin texto)", 1.6, 5, { fontSize: 16 }); }
+    if (id === "aviso") { head("Aviso", "Supuestos, riesgos y aviso"); para([`Cifras al ${fdate(D.as_of)}, calculadas con los valores cuota de cada fondo (dividendos reinvertidos).`, "Las probabilidades de las metas vienen de 5.000 escenarios simulados con supuestos de mercado; no son una promesa. Los escenarios adversos son hipotéticos o repiten episodios pasados.", "Rentabilidades pasadas no garantizan rentabilidades futuras. Las inversiones pueden perder valor.", `Faltan datos que limitan algunos análisis: ${c.faltantes.slice(0, 3).join("; ") || "ninguno crítico"}.`, "Este documento lo revisa y presenta su asesor; no es una recomendación automática. Cliente y supuestos ficticios: material de simulación."].join("\n\n"), 1.6, 5, { fontSize: 14 }); }
+  });
+  return P.write({ outputType: "blob" });
+}
+$("p-release").addEventListener("click", async () => {
+  if (!$("p-ack").checked) return;
+  const c = CL[state.client], ids = chosen();
+  $("p-release").disabled = true;
+  try {
+    if (db) {
+      let por = null; try { por = user ? await user.id() : null; } catch (e) {}
+      await db.collection("liberaciones").add({ cliente: c.id, laminas: ids, datos_al: D.as_of, fecha: new Date().toISOString(), por, nota: $("p-note").value.slice(0, 300) });
+    }
+    if (typeof PptxGenJS === "undefined") { msg("Liberación registrada. No se pudo cargar el generador de PPTX en esta vista; usa Presentar en pantalla.", true); return; }
+    if (!downloads) { msg("Liberación registrada. Esta vista no permite descargar archivos; usa Presentar en pantalla.", true); return; }
+    const blob = await buildPptx(c, ids);
+    await downloads.save({ filename: `Revision-${c.id}-${D.as_of}.pptx`, data: blob });
+    msg(`Liberada y descargada: ${ids.length} láminas para ${c.nombre}.`);
+  } catch (e) {
+    const code = e && e.code;
+    msg(code === "declined" ? "Descarga cancelada. La liberación quedó registrada." : code === "invalid_argument" ? "Tu nivel de acceso no permite registrar liberaciones." : "No se pudo completar: " + (e && e.message || e), code !== "declined");
+  } finally { $("p-release").disabled = !$("p-ack").checked; }
+});
+
+/* ---------- Arranque ---------- */
+const RENDER = { libro: renderLibro, clientes: renderClientes, dd: renderDD, pres: renderPres };
+let first = location.hash.slice(1); if (!VIEWS.includes(first)) first = store.get("view", "libro");
+go(first, false);
+initCaps();
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (state.view === "clientes" && cchart) {} }, 200); });
+const retheme = () => RENDER[state.view]();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
