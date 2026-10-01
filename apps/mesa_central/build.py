@@ -17,6 +17,6 @@ from build_data import main as build_data  # noqa: E402
 DIST = HERE / "dist"
 DIST.mkdir(exist_ok=True)
 build_data(str(DIST / "data"))
-for f in ("index.html", "app.js", "client.js", "crisis.js", "pres.js"):
+for f in ("index.html", "app.js", "client.js", "crisis.js", "cartera.js", "pres.js"):
     shutil.copy(HERE / f, DIST / f)
 print(DIST)

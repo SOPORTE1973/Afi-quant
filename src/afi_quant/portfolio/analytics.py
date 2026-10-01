@@ -93,6 +93,34 @@ def multi_period_returns(series, as_of: date) -> dict:
     return out
 
 
+def capital_vintages(rows) -> list[dict]:
+    """
+    Vintage del capital: cuánto del valor de hoy viene del dinero que entró cada año.
+    Cada cohorte crece con el índice TWR de la cartera; un retiro externo se descuenta de
+    todas las cohortes a prorrata. La suma de cohortes reproduce el valor final (salvo el
+    efecto de flujos dentro del mes). Análisis de cohortes por año de inicio: QM VIII, ADVANCED.
+    """
+    cohorts: dict[int, dict] = {}
+    prev = None
+    for row in rows:
+        if prev is not None:
+            growth = row.indice_twr / prev.indice_twr
+            for c in cohorts.values():
+                c["valor"] *= growth
+        total = sum(c["valor"] for c in cohorts.values())
+        if row.retiros and total > 0:
+            for c in cohorts.values():
+                c["retirado"] += c["valor"] * row.retiros / total
+                c["valor"] -= c["valor"] * row.retiros / total
+        aporte = row.aportes if prev is not None else row.total
+        if aporte:
+            c = cohorts.setdefault(row.fecha.year, {"anio": row.fecha.year, "aportado": 0.0, "valor": 0.0, "retirado": 0.0})
+            c["aportado"] += aporte
+            c["valor"] += aporte
+        prev = row
+    return [{**c, "ganancia": c["valor"] + c["retirado"] - c["aportado"]} for c in sorted(cohorts.values(), key=lambda c: c["anio"])]
+
+
 def rolling_annualized(returns: list[float], months: list[date], window: int = 36) -> list[dict]:
     out = []
     for end in range(window, len(returns) + 1):

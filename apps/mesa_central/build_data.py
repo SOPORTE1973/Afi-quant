@@ -19,7 +19,12 @@ from afi_quant.data.fixtures import afp_sistema_c
 from afi_quant.due_diligence.review import load_dossiers
 from afi_quant.engines.cma import LEDOIT_WOLF, apply_registry_assumptions, estimate_cma, monthly_history
 from afi_quant.engines.construction import grid_portfolios, optimize_grid
+from afi_quant.engines.diversification import (
+    diversification_ratio, effective_number_of_bets, exposure_breakdown, factor_exposure, hhi,
+    look_through_issuers, risk_contributions,
+)
 from afi_quant.engines.monitoring import DIMENSION_NAMES, DIMENSIONS
+from afi_quant.portfolio.analytics import capital_vintages
 from afi_quant.portfolio.timeseries import daily_portfolio, normalized
 from afi_quant.portfolio.universe import default_universe, policy_benchmark_proxies
 from afi_quant.registries.parameter_registry import get_parameter
@@ -129,6 +134,46 @@ def compact_stress(stress: dict, VEH) -> dict:
     return out
 
 
+def cartera_block(bc, r, u, dossiers) -> dict:
+    """Todo lo que la pestaña Cartera necesita además de lo que ya existía (DF 7.1)."""
+    w = r.summary["pesos_actuales"]
+    cma = r.cases[-1].input_data.get("cma_estimate")
+    rc = risk_contributions(w, cma.cov) if cma else {}
+    fac = factor_exposure(w, u, dossiers)
+    fac_w = {k: v for k, v in fac.items() if not k.startswith("Tasa") and k != "Moneda extranjera"}
+    lt = look_through_issuers(w, dossiers)
+    sect, rating = {}, {}
+    for k, x in w.items():
+        e = (dossiers.get(k) or {}).get("exposicion") or {}
+        for s, pct in (e.get("sectores") or {}).items():
+            sect[s] = sect.get(s, 0.0) + x * pct / 100
+        for s, pct in (e.get("rating") or {}).items():
+            rating[s] = rating.get(s, 0.0) + x * pct / 100
+    last = next(c for c in reversed(r.cases) if "construction" in c.engine_results
+                and not c.engine_results["construction"].insufficient_data)
+    sleeves = last.engine_results["construction"].values["sleeves"]
+    pos = r.positions
+    return {
+        "posiciones": pos,
+        "vintage_capital": capital_vintages(r.rows),
+        "vintage_fondos": {k: {"inicio": dossiers[k]["inicio_operaciones"],
+                               "primera_compra": min((p["primera_compra"] for p in pos if p["vehiculo"] == k and p["vigente"]), default=None)}
+                           for k, x in w.items() if x > 0},
+        "look_through": lt[:18], "look_through_resto": sum(x["peso"] for x in lt[18:]),
+        "exposiciones": exposure_breakdown(w, u, dossiers), "factores": fac,
+        "sectores": sect, "rating": rating,
+        "medidas": {"enb": effective_number_of_bets(rc) if rc else None,
+                    "dr": diversification_ratio(w, cma.cov) if cma else None,
+                    "hhi_pesos": hhi(w), "hhi_riesgo": hhi(rc) if rc else None,
+                    "hhi_factores": hhi({k: v / sum(fac_w.values()) for k, v in fac_w.items()}),
+                    "n_fondos": sum(1 for x in w.values() if x > 0)},
+        "arquitectura": {"fecha": last.input_data["as_of_date"], "trigger": last.trigger,
+                         "metas": {g: {"horizonte": s["horizonte"], "tope": s["tope_volatilidad"], "fuente": s.get("tope_fuente"),
+                                       "objetivo": s["pesos"], "valor": {p["vehiculo"]: p["valor"] for p in pos if p["meta"] == g and p["vigente"]}}
+                                   for g, s in sleeves.items()}},
+    }
+
+
 def client_payload(bc, r, u, prox, P, account):
     c, ips = bc.client, bc.ips
     a, close, s = r.advisory, r.closing_results, r.summary
@@ -216,6 +261,7 @@ def client_payload(bc, r, u, prox, P, account):
                      "realizado": rel.get("realizado")},
         "stress": compact_stress(a["stress"], VEH), "limites": a["limites_ips"], "liquidez": close["liquidity"],
         "metas_cerradas": sorted(x for x in settled if x),
+        "cartera": cartera_block(bc, r, u, load_dossiers()["fondos"]),
     }
 
 

@@ -258,48 +258,7 @@ CT.construccion = function (h, C) {
     ch.timeScale().fitContent(); cv.charts.wt = ch; }
 };
 
-/* ---------- Cartera ---------- */
-CT.cartera = function (h, C) {
-  const S = C.resumen, Dr = C.drift, dv = C.div_cierre, R = C.rentabilidad;
-  h.innerHTML = `
-    <div class="g2">
-      <div class="tile"><h3>Peso actual frente al objetivo</h3><div class="legend"><span><i style="--c:var(--interactive)"></i>Actual</span><span><i style="--c:var(--layer-2);outline:1px solid var(--border-strong)"></i>Banda ±${pct(Dr.banda, 0)}</span><span><i class="line" style="border-top-style:solid;border-color:var(--text)"></i>Objetivo</span></div><div class="chart" id="drift"></div><p class="helper">Cartera total. Dentro de la banda no se propone operar; fuera, el flujo de rebalanceo genera alternativas por meta.</p></div>
-      <div class="tile"><h3>Peso frente a aporte al riesgo</h3><div class="legend"><span><i style="--c:var(--bar)"></i>Peso</span><span><i style="--c:var(--interactive)"></i>Aporte al riesgo</span></div><div class="chart" id="riskw"></div><p class="helper" id="riskw-n"></p></div>
-    </div>
-    <div class="tile"><h3>Retorno mensual de la cartera</h3><div id="heat" style="overflow-x:auto"></div><p class="helper">Sin efecto de aportes ni retiros (TWR).</p></div>
-    <div class="tile"><h3>Rentabilidad por fondo</h3><div class="tw"><table class="dt" id="rent"></table></div><p class="helper">Valor cuota ajustado (repartos reinvertidos). BTG Liquidez Alternativa parte el 04-10-2021.</p></div>
-    <div class="g2">
-      <div class="tile"><h3>Qué aportó cada fondo</h3><div class="tw"><table class="dt" id="pnl"></table></div></div>
-      <div class="tile"><h3>Atribución frente al policy benchmark</h3><div class="tw"><table class="dt" id="brin"></table></div><p class="helper">Brinson-Fachler (ADVANCED). Suma aritmética mensual.</p></div>
-    </div>`;
-  const ks = VEH.filter(k => (Dr.actual[k] || 0) > 0 || (Dr.objetivo[k] || 0) > 0), dh = $("drift");
-  const W = Math.max(320, dh.clientWidth), rh = 30, m = { t: 6, r: 16, b: 24, l: 150 }, H = m.t + m.b + rh * ks.length, x = v => m.l + v * (W - m.l - m.r);
-  const s1 = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Peso actual frente al objetivo" }, dh);
-  [0, .25, .5].forEach(v => { el("line", { x1: x(v * 2), x2: x(v * 2), y1: m.t, y2: H - m.b, stroke: css("--border") }, s1); txt(s1, x(v * 2), H - 6, pct(v * 2, 0), { "text-anchor": "middle" }); });
-  ks.forEach((k, i) => { const cy = m.t + i * rh + rh / 2, a = Dr.actual[k] || 0, o = Dr.objetivo[k] || 0, out = Math.abs(a - o) > Dr.banda;
-    txt(s1, m.l - 8, cy + 4, `${k} · ${VNAME[k]}`, { "text-anchor": "end", style: `fill:${css("--text-2")}` });
-    el("rect", { x: x(Math.max(0, o - Dr.banda)), y: cy - 7, width: x(Math.min(1, o + Dr.banda)) - x(Math.max(0, o - Dr.banda)), height: 14, fill: css("--layer-2"), stroke: css("--border-strong") }, s1);
-    el("line", { x1: x(o), x2: x(o), y1: cy - 9, y2: cy + 9, stroke: css("--text"), "stroke-width": 2 }, s1);
-    el(out ? "rect" : "circle", out ? { x: x(a) - 5, y: cy - 5, width: 10, height: 10, fill: css("--err"), transform: `rotate(45 ${x(a)} ${cy})` } : { cx: x(a), cy, r: 5.5, fill: css("--interactive") }, s1);
-    txt(s1, x(a) + (a > .85 ? -10 : 10), cy + 4, `${pct(a, 1)} (${spct(a - o, 1)})`, { "text-anchor": a > .85 ? "end" : "start", style: `fill:${css("--text")}` }); });
-  const keys = VEH.filter(k => dv.pesos[k]), rh2 = $("riskw"), W2 = Math.max(320, rh2.clientWidth), m2 = { t: 6, r: 60, b: 22, l: 110 }, H2 = m2.t + m2.b + 34 * keys.length;
-  const top = Math.max(.6, ...keys.map(k => Math.max(dv.pesos[k], dv.contribucion_riesgo[k]))) , x2 = v => m2.l + v * (W2 - m2.l - m2.r) / top;
-  const s2 = el("svg", { viewBox: `0 0 ${W2} ${H2}`, role: "img", "aria-label": "Peso frente a aporte al riesgo" }, rh2);
-  keys.forEach((k, i) => { const cy = m2.t + i * 34 + 17; txt(s2, m2.l - 8, cy + 4, `${k} · ${VNAME[k]}`, { "text-anchor": "end", style: `fill:${css("--text-2")}` });
-    el("rect", { x: x2(0), y: cy - 12, width: x2(dv.pesos[k]) - x2(0), height: 10, fill: css("--bar") }, s2); el("rect", { x: x2(0), y: cy + 1, width: Math.max(1, x2(Math.max(0, dv.contribucion_riesgo[k])) - x2(0)), height: 10, fill: css("--interactive") }, s2);
-    txt(s2, x2(Math.max(dv.pesos[k], dv.contribucion_riesgo[k])) + 6, cy + 4, `${pct(dv.pesos[k], 0)} → ${pct(dv.contribucion_riesgo[k], 0)}`, { style: `fill:${css("--text")}` }); });
-  const rv = (dv.contribucion_riesgo.RVL || 0) + (dv.contribucion_riesgo.RVG || 0), rvw = (dv.pesos.RVL || 0) + (dv.pesos.RVG || 0);
-  $("riskw-n").textContent = `La renta variable pesa ${pct(rvw, 0)} y explica ${pct(rv, 0)} del riesgo.${dv.pesos.DP ? ` Facturas pesa ${pct(dv.pesos.DP, 0)} y casi no aporta riesgo medido: su valor cuota está suavizado.` : ""}`;
-  const rets = Object.fromEntries(C.retornos_mensuales.map(r => [r.mes, r.r])), years = [...new Set(C.retornos_mensuales.map(r => r.mes.slice(0, 4)))];
-  const col = v => { const a = Math.min(1, Math.abs(v) / 0.04); return `background:color-mix(in srgb, var(${v >= 0 ? "--div-pos" : "--div-neg"}) ${Math.round(a * 85)}%, var(--div-0));color:${a > .6 ? "#fff" : "var(--text)"}`; };
-  $("heat").innerHTML = `<div class="heat" style="min-width:640px"><div class="h"></div>${MON.map(x => `<div class="h">${x}</div>`).join("")}${years.map(y => `<div class="h" style="text-align:left">${y}</div>` + MON.map((_, i) => { const k = `${y}-${String(i + 1).padStart(2, "0")}`, v = rets[k]; return v == null ? "<div></div>" : `<div style="${col(v)}" title="${fmonth(k)}: ${spct(v, 2)}">${spct(v, 1)}</div>`; }).join("")).join("")}</div>`;
-  const rrow = (name, r) => `<tr><td class="tx">${name}</td>${["1m", "3m", "ytd", "1a", "3a", "5a", "desde_inicio_anual"].map(k => `<td class="n${cls(r[k])}">${pct(r[k], 1)}</td>`).join("")}<td class="n">${pct(r.volatilidad_3a, 1)}</td><td class="n neg">${pct(r.max_drawdown_3a, 1)}</td></tr>`;
-  $("rent").innerHTML = `<thead><tr><th>Fondo</th><th>1 mes</th><th>3 meses</th><th>YTD</th><th>1 año</th><th>3 años</th><th>5 años</th><th>Inicio</th><th>Vol 3a</th><th>Caída 3a</th></tr></thead><tbody>${VEH.map(k => rrow(`<span class="sw" style="--c:${vc(k)}"></span>${k} · ${esc(R[k].nombre)}`, R[k])).join("")}<tr class="grp"><td colspan="10">Referencias (no elegibles como benchmark)</td></tr>${rrow(esc(L.referencias.IPSA.nombre), L.referencias.IPSA)}${rrow(esc(L.referencias.AFP_C.nombre), L.referencias.AFP_C)}</tbody>`;
-  const mg = Math.max(...VEH.map(k => Math.abs(R[k].ciclo.ganancia_clp))) || 1;
-  $("pnl").innerHTML = `<thead><tr><th>Fondo</th><th>Retorno del fondo</th><th>Invertido neto</th><th>Valor final</th><th>Ganancia</th></tr></thead><tbody>${VEH.map(k => { const c = R[k].ciclo; return `<tr><td>${k}</td><td class="n">${pct(c.retorno_vehiculo, 1)}</td><td class="n">${mm(c.invertido_neto)}</td><td class="n">${mm(c.valor_final)}</td><td class="n w" style="--pct:${(Math.abs(c.ganancia_clp) / mg * 100).toFixed(0)}%">${mm(c.ganancia_clp)}</td></tr>`; }).join("")}<tr><td><b>Total</b></td><td></td><td></td><td class="n">${mm(S.valor_final)}</td><td class="n"><b>${mm(C.flujos.ganancia_neta)}</b></td></tr></tbody>`;
-  const B = (C.relativo.realizado || {}).atribucion;
-  $("brin").innerHTML = B ? `<thead><tr><th>Fondo</th><th>Asignación</th><th>Selección</th><th>Interacción</th></tr></thead><tbody>${VEH.map(k => { const b = B.por_vehiculo[k]; return `<tr><td>${k}</td><td class="n${cls(b.asignacion)}">${spct(b.asignacion, 2)}</td><td class="n${cls(b.seleccion)}">${spct(b.seleccion, 2)}</td><td class="n${cls(b.interaccion)}">${spct(b.interaccion, 2)}</td></tr>`; }).join("")}<tr><td><b>Total</b></td><td class="n">${spct(B.total.asignacion, 2)}</td><td class="n"><b>${spct(B.total.seleccion, 2)}</b></td><td class="n">${spct(B.total.interaccion, 2)}</td></tr></tbody>` : "<tbody><tr><td class='muted'>Sin atribución.</td></tr></tbody>";
-};
+/* Cartera: ver cartera.js (flujo de diversificación completo). */
 
 /* ---------- Riesgo ---------- */
 const rst = { goal: null };

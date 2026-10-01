@@ -88,6 +88,7 @@ class LifecycleResult:
     cases: list = field(default_factory=list)
     ledger: list[dict] = field(default_factory=list)
     advisory: dict = field(default_factory=dict)
+    positions: list = field(default_factory=list)   # una fila por meta y fondo al cierre
 
 
 def engine_registry() -> EngineRegistry:
@@ -134,6 +135,8 @@ class LifecycleSimulation:
         self.twr_periods: list[tuple[float, float]] = []
         self.ledger: list[dict] = []                        # todos los movimientos, clasificados
         self.invested: dict[str, float] = {k: 0.0 for k in universe}
+        # Lotes por (meta, fondo) a costo promedio: base para posiciones y ganancia realizada
+        self.lots: dict[tuple[str, str], dict] = {}
 
     # --- utilidades -------------------------------------------------------
 
@@ -167,7 +170,20 @@ class LifecycleSimulation:
     def buy(self, goal: str, amounts: dict[str, float], ym) -> None:
         hold = self.units.setdefault(goal, {})
         for k, amount in amounts.items():
-            hold[k] = hold.get(k, 0.0) + amount / self.price(k, ym)
+            units = amount / self.price(k, ym)
+            lot = self.lots.setdefault((goal, k), {"unidades": 0.0, "costo": 0.0, "realizado": 0.0,
+                                                   "primera_compra": None, "ultima_operacion": None})
+            if units > 0:
+                lot["costo"] += amount
+                lot["primera_compra"] = lot["primera_compra"] or self.nav[k][ym].fecha
+            elif lot["unidades"] > 0:
+                share = min(1.0, -units / lot["unidades"])
+                cost_out = lot["costo"] * share
+                lot["realizado"] += -amount - cost_out
+                lot["costo"] -= cost_out
+            lot["unidades"] += units
+            lot["ultima_operacion"] = self.nav[k][ym].fecha
+            hold[k] = hold.get(k, 0.0) + units
             self.invested[k] += amount
             if abs(hold[k]) < 1e-9:
                 del hold[k]
@@ -325,7 +341,17 @@ class LifecycleSimulation:
                 self._review(ym, as_of, annual=False, extraordinary=True)
 
         closing = self._close()
-        return LifecycleResult(
+        last = self.calendar[-1] if self.calendar else ym0
+        positions = []
+        for (g, k), lot in sorted(self.lots.items()):
+            value = max(0.0, lot["unidades"]) * self.price(k, last) if lot["unidades"] > 1e-9 else 0.0
+            positions.append({"meta": g, "vehiculo": k, "unidades": max(0.0, lot["unidades"]),
+                              "valor_cuota": self.price(k, last), "valor": value,
+                              "costo": lot["costo"] if value else 0.0,
+                              "ganancia_no_realizada": value - lot["costo"] if value else 0.0,
+                              "ganancia_realizada": lot["realizado"], "primera_compra": lot["primera_compra"],
+                              "ultima_operacion": lot["ultima_operacion"], "vigente": value > 0})
+        return LifecycleResult(positions=positions,
             client=self.client, onboarding=t0, events=self.events, rows=self.rows,
             onboarding_results=onboarding_results, closing_results=closing["results"],
             summary=closing["summary"], cases=self.cases, ledger=self.ledger,
