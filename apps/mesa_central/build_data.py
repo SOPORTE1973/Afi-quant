@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 
 from afi_quant.book.run import run_book
+from motor_data import clean, motor_payload
 from afi_quant.data.fixtures import afp_sistema_c
 from afi_quant.due_diligence.catalog import screen_catalog
 from afi_quant.due_diligence.review import load_dossiers
@@ -316,6 +317,10 @@ def main(out_dir: str):
                                    {u[k].series.rut for k, hs in b.aggregates["tenedores"].items() if hs}),
     }
     (out / "libro.json").write_text(json.dumps(js(shared), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    cat0 = {r["variable"]: r for r in adv0["catalogo"]}
+    motor = motor_payload(u, reg, P, b.as_of, cat0)
+    (out / "motor.json").write_text(json.dumps(clean(motor), ensure_ascii=False, separators=(",", ":")),
+                                    encoding="utf-8")
     sizes = {}
     for bc in b.clients:
         cid = bc.client.client_id

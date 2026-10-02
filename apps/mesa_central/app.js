@@ -41,7 +41,7 @@ async function loadClient(id) {
 }
 
 /* ---------- Navegación ---------- */
-const VIEWS = ["libro", "cliente", "dd", "pres"];
+const VIEWS = ["libro", "cliente", "dd", "pres", "alta"];
 const app = { view: "libro", client: null, fund: store.get("fund", "DP") };
 const RENDER = {};
 function go(v, opts = {}) {
@@ -162,6 +162,8 @@ function renderModelDossier(host) {
   // pesos de cada cliente: se cargan en segundo plano para la tabla de exposición
   Promise.all(L.monitoreo.map(a => loadClient(a.id).then(c => { L.expo[a.id] = c.resumen.pesos_actuales; L.limite_adm[a.id] = c.ips.admin_max; }).catch(() => {})))
     .then(() => { if (app.view === "libro") RENDER.libro(); });
+  // los demás scripts registran sus vistas en RENDER: esperar a que todos se hayan ejecutado
+  if (document.readyState === "loading") await new Promise(r => addEventListener("DOMContentLoaded", r, { once: true }));
   let first = location.hash.slice(1); if (!VIEWS.includes(first)) first = store.get("view", "libro");
   go(first);
 })();
