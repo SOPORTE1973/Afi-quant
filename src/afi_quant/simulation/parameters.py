@@ -56,6 +56,11 @@ SIMULATION_VALUES: dict[str, float | str | dict] = {
     "dd_te_increase_ratio": 1.5,
     "dd_top5_max_pct": 60,
     "dd_single_position_max_pct": 25,
+    # Desembolso de la jubilación: edad hasta la que deben alcanzar los retiros e
+    # inflación con que se indexan (meta del Banco Central de Chile: 3%). Ficticios.
+    "decumulation_end_age": 90,
+    "decumulation_inflation_pct": 3.0,
+    "decumulation_confidence_levels": "0.5,0.75,0.9",
     # Reverse stress: la ruptura es la caída máxima que tolera el IPS del cliente.
     "reverse_stress_breach_limit": "ips_max_drawdown",
     # tradeoff_materiality_threshold queda sin valor a propósito (DF 8.3 OQ4):

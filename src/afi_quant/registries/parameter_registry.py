@@ -357,6 +357,28 @@ def _seed_parameters() -> list[Parameter]:
             source="[QM Parte XXII, III.0 Rev.6 — Block Bootstrap]",
         ),
         Parameter(
+            name="decumulation_end_age",
+            category="Horizontes y buckets de liquidez",
+            description="Edad hasta la que deben alcanzar los retiros de una meta de jubilación "
+                        "(sin tablas de mortalidad). " + _PROPOSAL_NOTE,
+            unit="años",
+            source="[QM II.10 — Goal-Based Monte Carlo], DF 5.3 (liquidez requerida)",
+        ),
+        Parameter(
+            name="decumulation_inflation_pct",
+            category="CMAs institucionales",
+            description="Inflación anual con que se indexan los retiros de la jubilación. " + _PROPOSAL_NOTE,
+            unit="% anual",
+            source="[QM VII — supuestos de mercado]",
+        ),
+        Parameter(
+            name="decumulation_confidence_levels",
+            category="Parámetros de escenarios y stress testing",
+            description="Niveles de confianza a los que se muestra el retiro sostenible; el WM elige "
+                        "con el cliente, el sistema no fija uno. " + _PROPOSAL_NOTE,
+            source="[QM II.10], DF 4.3",
+        ),
+        Parameter(
             name="reverse_stress_breach_limit",
             category="Parámetros de escenarios y stress testing",
             description="Qué cuenta como 'ruptura' en el Reverse Stress Testing (p. ej. la caída "

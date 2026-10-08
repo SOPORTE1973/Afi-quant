@@ -66,6 +66,7 @@ CT.resumen = function (h, C) {
       <div class="tile"><div class="th"><h3>Aportado frente al valor</h3><button class="link" data-goto-tab="grafico">Abrir en el gráfico</button></div><div class="legend"><span><i style="--c:var(--interactive)"></i>Valor</span><span><i class="line"></i>Aportes netos</span></div><div id="mini" style="height:240px"></div></div>
       <div class="tile"><h3>Metas</h3><div id="goals"></div></div>
     </div>
+    ${Object.keys(C.desembolso || {}).length ? '<div class="tile" id="desemb"></div>' : ""}
     <div class="tile"><h3>Lo que conviene mirar</h3><div class="g3" id="ins"></div></div>
     <div class="tile"><div class="th"><h3>Últimas decisiones</h3><button class="link" data-goto-tab="decisiones">Ver todas</button></div><div id="lastn"></div></div>`;
   $("goals").innerHTML = C.cliente.metas.map(g => {
@@ -77,6 +78,7 @@ CT.resumen = function (h, C) {
     return `<div class="goalrow"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(g.nombre)}</b>${si(g.prob_deseada == null ? "sin_datos" : below ? "alerta" : "ok", `${pct(m.prob_exito, 0)}${g.prob_deseada != null ? " · deseada " + pct(g.prob_deseada, 0) : ""}`)}</div>
       <div class="prog"><i style="width:${(m.prob_exito * 100).toFixed(0)}%"></i>${g.prob_deseada != null ? `<b style="left:${(g.prob_deseada * 100).toFixed(0)}%"></b>` : ""}</div>
       <span class="helper">${mm(g.objetivo)} al ${fdate(g.fecha)} · hoy ${mm(C.resumen.valor_por_meta[g.key])} · mediana proyectada ${mm(m.p50)}</span></div>`; }).join("");
+  if ($("desemb")) renderDesembolso($("desemb"), C);
   const ins = [];
   if (worst && worst.prob_deseada != null && C.metas_cierre[worst.key].prob_exito < worst.prob_deseada) ins.push({ st: "--err", t: `${worst.nombre} bajo lo deseado`, b: `Probabilidad ${pct(C.metas_cierre[worst.key].prob_exito, 0)} frente a ${pct(worst.prob_deseada, 0)} pedida en el IPS. Las palancas son aporte, plazo, monto o riesgo: decide el WM con el cliente.`, go: "riesgo" });
   if (inv && inv.escenario_stress_escalado && inv.escenario_stress_escalado.multiplicador < 1) ins.push({ st: "--err", t: "El escenario Stress rompe el límite del IPS", b: `Perdería ${pct(inv.escenario_stress_escalado.perdida_escenario, 1)} frente a ${pct(inv.limite, 0)} tolerado: basta el ${nf(inv.escenario_stress_escalado.multiplicador * 100, 0)}% de ese escenario.`, go: "riesgo" });
@@ -387,3 +389,43 @@ CT.datos = function (h, C) {
     </div>
     <details class="tile"><summary style="cursor:pointer"><h4 style="display:inline">Parámetros de simulación</h4></summary><div class="tw" style="margin-top:12px"><table class="dt"><tbody>${Object.entries(L.parametros).map(([k, v]) => `<tr><td class="num">${k}</td><td class="tx">${esc(typeof v === "object" ? Object.entries(v).map(([a, b]) => `${a} ${b}`).join(" · ") : String(v))}</td></tr>`).join("")}</tbody></table></div></details>`;
 };
+
+/* ---------- Desembolso de la jubilación (engines/decumulation.py) ---------- */
+const dsb = { cartera: "largo", nivel: 1 };
+function renderDesembolso(h, C) {
+  const [gk, D] = Object.entries(C.desembolso)[0];
+  if (D.no_calculado) { h.innerHTML = `<h3>Desembolso de la jubilación</h3><p class="muted">${esc(D.no_calculado)}</p>`; return; }
+  if (!D.carteras[dsb.cartera]) dsb.cartera = Object.keys(D.carteras)[0];
+  const X = D.carteras[dsb.cartera], S = D.supuestos; if (!X.niveles[dsb.nivel]) dsb.nivel = 0;
+  const N = X.niveles[dsb.nivel], g = C.cliente.metas.find(m => m.key === gk), pg = (C.metas_cierre[gk] || {}).prob_exito;
+  const yi = String(X.inicio).slice(0, 4);
+  h.innerHTML = `<div class="th"><div><span class="lbl">${esc(g.nombre)} · si se llega al objetivo</span><h3>¿Cuánto puede retirar al mes y hasta cuándo le alcanza?</h3></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" id="ds-c">${Object.entries(D.carteras).map(([k, c]) => `<button data-v="${k}" aria-pressed="${k === dsb.cartera}">${k === "largo" ? "Cartera de largo plazo" : esc(c.nombre)}</button>`).join("")}</div>
+      <div class="seg" id="ds-n">${X.niveles.map((l, i) => `<button data-v="${i}" aria-pressed="${i === dsb.nivel}">Confianza ${pct(l.confianza, 0)}</button>`).join("")}</div></div></div>
+    <div class="kpis">${kpi("Capital al jubilar", mm(X.capital_inicial), `objetivo al ${fdate(X.inicio)}, a los ${nf(X.edad_inicio, 0)} años${pg != null ? ` · hoy la probabilidad de llegar es ${pct(pg, 0)}` : ""}`)}
+      ${kpi(`Retiro mensual inicial (${pct(N.confianza, 0)} de confianza)`, mm(N.retiro_inicial), `${mm(N.retiro_inicial_hoy)} en pesos de hoy · sube con la inflación (${nf(S.inflacion_pct, 1)}% anual)`)}
+      ${kpi(`Retiro mensual a los ${S.edad_final}`, mm(N.retiro_final), `mismo poder de compra que el primer retiro`)}
+      ${kpi("Total retirado", mm(N.total_retirado), `${nf(X.meses)} meses, de ${yi} a ${String(X.fin).slice(0, 4)}`)}</div>
+    <div class="g2"><div style="min-width:0"><div class="legend"><span><i style="--c:var(--g2);opacity:.3"></i>Saldo P10–P90</span><span><i style="--c:var(--g2)"></i>Saldo mediano</span><span><i style="--c:var(--err)"></i>Probabilidad de que quede capital (eje derecho)</span></div><div class="chart" id="ds-chart"></div></div>
+      <div style="display:grid;gap:12px;align-content:start"><div class="tw"><table class="dt"><thead><tr><th>Confianza</th><th>Retiro inicial</th><th>En pesos de hoy</th><th>A los ${S.edad_final}</th></tr></thead><tbody>
+        ${X.niveles.map((l, i) => `<tr class="${i === dsb.nivel ? "hl" : ""}"><td>${pct(l.confianza, 0)} de las trayectorias</td><td class="n">${mm(l.retiro_inicial)}</td><td class="n">${mm(l.retiro_inicial_hoy)}</td><td class="n">${mm(l.retiro_final)}</td></tr>`).join("")}
+        <tr class="grp"><td>Con el retorno esperado fijo</td><td class="n">${mm(X.retiro_deterministico)}</td><td class="n">${mm(X.retiro_deterministico_hoy)}</td><td class="n">—</td></tr></tbody></table></div>
+        <dl class="kv"><dt>Cartera</dt><dd>${esc(X.nombre)}: ${Object.entries(X.cartera).map(([k, w]) => `${k} ${pct(w, 0)}`).join(" · ")}</dd><dt>Retorno y volatilidad</dt><dd class="num">${pct(X.retorno_esperado, 1)} · ${pct(X.volatilidad_ex_ante, 1)}</dd></dl>
+        <p class="helper">Más confianza significa un retiro menor: el sistema no elige el nivel, lo decide el WM con el cliente. El retiro con retorno fijo ignora la volatilidad y por eso promete más de lo que sostiene la mitad de las trayectorias.</p></div></div>
+    <p class="helper">${nf(X.simulaciones)} trayectorias con bloques de ${X.bloque_meses} meses de la historia re-centrada en la CMA al ${fdate(S.cma_al)}. El retiro se paga a fin de mes y se indexa a la inflación; montos nominales salvo «pesos de hoy». Limitaciones: ${esc(S.limitaciones.join("; "))}.</p>`;
+  h.querySelectorAll("#ds-c button").forEach(b => b.addEventListener("click", () => { dsb.cartera = b.dataset.v; renderDesembolso(h, C); }));
+  h.querySelectorAll("#ds-n button").forEach(b => b.addEventListener("click", () => { dsb.nivel = +b.dataset.v; renderDesembolso(h, C); }));
+  const host = $("ds-chart"), t = N.trayectoria, W = Math.max(320, host.clientWidth || 560), H = 260, m = { t: 12, r: 48, b: 26, l: 56 };
+  // Escala hasta 1,5 veces el mayor saldo mediano: el P90 crece sin techo y aplastaría lo que importa (la mediana y el agotamiento)
+  const top90 = Math.max(...t.map(p => p.p90)), ymax = Math.min(top90 * 1.05, Math.max(...t.map(p => p.p50)) * 1.5), a0 = t[0].edad, a1 = t[t.length - 1].edad;
+  const x = a => m.l + (a - a0) / (a1 - a0) * (W - m.l - m.r), y = v => m.t + (1 - v / ymax) * (H - m.t - m.b), yp = p => m.t + (1 - p) * (H - m.t - m.b);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Saldo de la jubilación por edad" }, host);
+  for (let i = 0; i <= 4; i++) { const v = ymax * i / 4; el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: css("--border") }, svg); txt(svg, m.l - 6, y(v) + 4, nf(v / 1e6, 0) + "M", { "text-anchor": "end" }); txt(svg, W - m.r + 6, yp(i / 4) + 4, pct(i / 4, 0)); }
+  for (let a = Math.ceil(a0 / 5) * 5; a <= a1; a += 5) txt(svg, x(a), H - 8, a + " años", { "text-anchor": "middle" });
+  const clipId = "ds-clip"; el("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b }, el("clipPath", { id: clipId }, svg));
+  el("path", { d: t.map((p, i) => `${i ? "L" : "M"}${x(p.edad)},${y(p.p90)}`).join("") + t.slice().reverse().map(p => `L${x(p.edad)},${y(p.p10)}`).join("") + "Z", fill: css("--g2"), "fill-opacity": .2, "clip-path": `url(#${clipId})` }, svg);
+  if (top90 * 1.05 > ymax) { const n = document.createElement("p"); n.className = "helper"; n.textContent = `La banda P90 se corta arriba: en el 10% de mejores trayectorias el saldo llega a ${mm(top90)}.`; host.appendChild(n); }
+  el("path", { d: t.map((p, i) => `${i ? "L" : "M"}${x(p.edad)},${y(p.p50)}`).join(""), fill: "none", stroke: css("--g2"), "stroke-width": 2.5 }, svg);
+  el("path", { d: t.map((p, i) => `${i ? "L" : "M"}${x(p.edad)},${yp(p.vigente)}`).join(""), fill: "none", stroke: css("--err"), "stroke-width": 2, "stroke-dasharray": "5 3" }, svg);
+  const last = t[t.length - 1]; txt(svg, x(last.edad) - 4, yp(last.vigente) + (last.vigente > .85 ? 16 : -6), `${pct(last.vigente, 0)} llega a los ${S.edad_final}`, { "text-anchor": "end", style: `fill:${css("--err-text")}` });
+}

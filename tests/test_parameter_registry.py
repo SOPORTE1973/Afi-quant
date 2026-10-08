@@ -23,9 +23,10 @@ def test_most_parameters_are_undeclared_values():
 
 def test_by_category_filters_correctly():
     liquidity_params = PARAMETER_REGISTRY.by_category("Horizontes y buckets de liquidez")
-    assert len(liquidity_params) == 3
+    assert len(liquidity_params) == 4
     assert {p.name for p in liquidity_params} == {
         "liquidity_bucket_short_days",
         "liquidity_bucket_medium_days",
         "min_lcr_ratio",
+        "decumulation_end_age",
     }

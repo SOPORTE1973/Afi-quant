@@ -34,6 +34,7 @@ class Goal:
     moneda: str = "CLP"
     probabilidad_deseada: float | None = None   # p. ej. 0.80 = 80% de confianza
     liquidez_requerida: str | None = None       # p. ej. "efectivo en la fecha"
+    jubilacion: bool = False                     # al cumplirse, el capital financia retiros (desembolso)
 
     def horizon(self, as_of: date, short_max_months: int, medium_max_months: int) -> str:
         if self.fecha is None:

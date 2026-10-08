@@ -75,8 +75,9 @@ def sim_003() -> BookClient:
                  liquidez_requerida="disponible en 3 días hábiles"),
             Goal("magister", "Magíster en el extranjero", "importante", 35_000_000, date(2027, 6, 30),
                  15_000_000, 600_000, probabilidad_deseada=0.80, liquidez_requerida="efectivo en la fecha"),
-            Goal("independencia", "Independencia financiera a los 59", "aspiracional", 1_800_000_000,
-                 date(2052, 3, 31), 25_000_000, 1_000_000, probabilidad_deseada=0.60),
+            Goal("jubilacion", "Jubilación a los 59", "aspiracional", 1_800_000_000,
+                 date(2052, 3, 31), 25_000_000, 1_000_000, probabilidad_deseada=0.60,
+                 liquidez_requerida="retiros mensuales desde la jubilación", jubilacion=True),
         ],
     )
     ips = _ips("SIM-003", on, "Agresivo", "Alta (cuestionario 81/100)", "Alta: 27 años de horizonte",

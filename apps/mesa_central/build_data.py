@@ -21,6 +21,7 @@ from afi_quant.due_diligence.catalog import screen_catalog
 from afi_quant.due_diligence.review import load_dossiers
 from afi_quant.engines.cma import LEDOIT_WOLF, apply_registry_assumptions, estimate_cma, monthly_history
 from afi_quant.engines.construction import grid_portfolios, optimize_grid
+from afi_quant.engines.decumulation import retirement_decumulation
 from afi_quant.engines.diversification import (
     diversification_ratio, effective_number_of_bets, exposure_breakdown, factor_exposure, hhi,
     look_through_issuers, risk_contributions,
@@ -264,6 +265,9 @@ def client_payload(bc, r, u, prox, P, account):
         "stress": compact_stress(a["stress"], VEH), "limites": a["limites_ips"], "liquidez": close["liquidity"],
         "metas_cerradas": sorted(x for x in settled if x),
         "cartera": cartera_block(bc, r, u, load_dossiers()["fondos"]),
+        "desembolso": {g.key: retirement_decumulation(g, c.fecha_nacimiento, lim.volatilidad_max_pct, u, P,
+                                                     r.rows[-1].fecha)
+                       for g in c.goals if g.jubilacion and g.key in goal_meta},
     }
 
 
