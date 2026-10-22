@@ -20,6 +20,10 @@ la edad final si y solo si W ≤ min_m A_m/B_m. Con eso, el retiro sostenible a
 un nivel de confianza p es el percentil (1−p) de ese máximo por trayectoria:
 exacto, sin búsqueda iterativa.
 
+Variante "preservando el capital": el mayor retiro que deja, a la edad final, el
+capital inicial con su mismo poder de compra (C·(1+g)^N) — vivir de la
+rentabilidad real. También es lineal en W: W ≤ (A_N − C·(1+g)^N)/B_N.
+
 No elige el nivel de confianza: muestra varios y el WM decide con el cliente
 (DF 4.3). La edad final y la inflación son parámetros del registro.
 
@@ -99,6 +103,11 @@ def decumulation_plan(*, capital: float, start: date, birth: date, end_age: int,
         b = b * (1 + r) + (1 + g) ** m
         low = min(low, a / b)
     deterministic = low
+    # Preservando el capital: al final debe quedar el capital inicial con su poder de compra
+    # (C·(1+g)^N), sin agotarse antes. Lineal en W: W ≤ (A_N − K)/B_N y W ≤ min A_m/B_m.
+    keep = capital * (1 + g) ** months
+    deterministic_keep = max(0.0, min(low, (a - keep) / b))
+    wkeep = sorted(max(0.0, min(row[months][2], (row[months][0] - keep) / row[months][1])) for row in marks)
 
     # Pesos de hoy: deflactar con la misma inflación desde la fecha de los datos
     to_today = (1 + inflation_pct / 100) ** (months_between(as_of, start) / 12)
@@ -114,7 +123,14 @@ def decumulation_plan(*, capital: float, start: date, birth: date, end_age: int,
                          "p10": vals[int(0.1 * (len(vals) - 1))], "p50": vals[int(0.5 * (len(vals) - 1))],
                          "p90": vals[int(0.9 * (len(vals) - 1))],
                          "retiro_mes": w * (1 + g) ** (cp - 1)})
+        wk = wkeep[min(len(wkeep) - 1, int(math.floor((1 - p) * len(wkeep))))]
+        finals = sorted(max(0.0, row[months][0] - wk * row[months][1]) / (1 + g) ** months
+                        if wk <= row[months][2] else 0.0 for row in marks)
         out_levels.append({
+            "preservando": {"retiro_inicial": wk, "retiro_inicial_hoy": wk / to_today,
+                            "retiro_final": wk * (1 + g) ** (months - 1),
+                            "capital_final_real_p50": finals[int(0.5 * (len(finals) - 1))],
+                            "capital_final_real_p10": finals[int(0.1 * (len(finals) - 1))]},
             "confianza": p, "retiro_inicial": w, "retiro_inicial_hoy": w / to_today,
             "retiro_anual_inicial": w * 12, "retiro_final": w * (1 + g) ** (months - 1),
             "total_retirado": w * sum((1 + g) ** m for m in range(months)),
@@ -127,6 +143,8 @@ def decumulation_plan(*, capital: float, start: date, birth: date, end_age: int,
         "inflacion_pct": inflation_pct, "deflactor_a_hoy": to_today,
         "cartera": weights, "retorno_esperado": expected_return,
         "retiro_deterministico": deterministic, "retiro_deterministico_hoy": deterministic / to_today,
+        "retiro_deterministico_preservando": deterministic_keep,
+        "retiro_deterministico_preservando_hoy": deterministic_keep / to_today,
         "niveles": out_levels,
         "simulaciones": n_sims, "bloque_meses": block,
     }

@@ -139,10 +139,13 @@ class ClientGoalEngine:
                 sleeve_values[g.key], contributions.get(g.key, 0.0), returns=returns,
                 checkpoints=marks,
             ))
-            path = [{"mes": 0, **{q: sleeve_values[g.key] for q in ("p10", "p25", "p50", "p75", "p90")}}]
+            contrib = contributions.get(g.key, 0.0)
+            # "aportado": capital inicial + aportes hasta ese mes; el resto del valor es rentabilidad
+            path = [{"mes": 0, "aportado": sleeve_values[g.key],
+                     **{q: sleeve_values[g.key] for q in ("p10", "p25", "p50", "p75", "p90")}}]
             for m in sorted(marks):
                 vals = sorted(marks[m])
-                path.append({"mes": m, "p10": percentile(vals, 0.10), "p25": percentile(vals, 0.25),
+                path.append({"mes": m, "aportado": sleeve_values[g.key] + contrib * m, "p10": percentile(vals, 0.10), "p25": percentile(vals, 0.25),
                              "p50": percentile(vals, 0.50), "p75": percentile(vals, 0.75),
                              "p90": percentile(vals, 0.90)})
             results[g.key] = {
@@ -160,6 +163,7 @@ class ClientGoalEngine:
                 "p50": percentile(finals, 0.50),
                 "p90": percentile(finals, 0.90),
                 "trayectoria": path,
+                "aportado_total": sleeve_values[g.key] + contrib * months,
                 "media": statistics.fmean(finals),
             }
 

@@ -141,8 +141,8 @@ function runEngine(d, blocking = []) {
     const months = monthsBetween(MO.as_of, g.fecha); if (months <= 0) continue;
     const marks = {}; for (let m = 12; m < months; m += 12) marks[m] = []; marks[months] = [];
     const fin = E.boot(s.pesos, months, +g.capital, +g.aporte || 0, marks).sort((a, b) => a - b);
-    const path = [{ mes: 0, p10: +g.capital, p25: +g.capital, p50: +g.capital, p75: +g.capital, p90: +g.capital }];
-    Object.keys(marks).map(Number).sort((a, b) => a - b).forEach(m => { const v = marks[m].sort((a, b) => a - b); path.push({ mes: m, p10: pctl(v, .1), p25: pctl(v, .25), p50: pctl(v, .5), p75: pctl(v, .75), p90: pctl(v, .9) }); });
+    const path = [{ mes: 0, aportado: +g.capital, p10: +g.capital, p25: +g.capital, p50: +g.capital, p75: +g.capital, p90: +g.capital }];
+    Object.keys(marks).map(Number).sort((a, b) => a - b).forEach(m => { const v = marks[m].sort((a, b) => a - b); path.push({ mes: m, aportado: +g.capital + (+g.aporte || 0) * m, p10: pctl(v, .1), p25: pctl(v, .25), p50: pctl(v, .5), p75: pctl(v, .75), p90: pctl(v, .9) }); });
     goalRes[g.key] = { tipo: "meta", meses: months, prob_exito: fin.filter(v => v >= +g.objetivo).length / fin.length, p10: pctl(fin, .1), p50: pctl(fin, .5), p90: pctl(fin, .9), trayectoria: path };
   }
   // Carteras alternativas por meta (DF v1.1 caso 3)
@@ -492,12 +492,13 @@ function drawFan(parent, g, x) {
   const X = mo => m.l + mo / t[t.length - 1].mes * (W - m.l - m.r), Y = v => m.t + (1 - v / hi) * (H - m.t - m.b);
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Abanico de ${g.nombre}` }, box);
   const area = (a, b) => t.map((p, i) => `${i ? "L" : "M"}${X(p.mes)},${Y(p[a])}`).join("") + [...t].reverse().map(p => `L${X(p.mes)},${Y(p[b])}`).join("") + "Z";
+  el("path", { d: t.map((p, i) => `${i ? "L" : "M"}${X(p.mes)},${Y(p.aportado)}`).join("") + `L${X(t[t.length - 1].mes)},${Y(0)}L${X(0)},${Y(0)}Z`, fill: alpha(css("--bar"), .55) }, svg);
   el("path", { d: area("p90", "p10"), fill: alpha(css("--interactive"), .15) }, svg); el("path", { d: area("p75", "p25"), fill: alpha(css("--interactive"), .3) }, svg);
   el("path", { d: t.map((p, i) => `${i ? "L" : "M"}${X(p.mes)},${Y(p.p50)}`).join(""), fill: "none", stroke: css("--interactive"), "stroke-width": 2 }, svg);
   el("line", { x1: m.l, x2: W - m.r, y1: Y(+g.objetivo), y2: Y(+g.objetivo), stroke: css("--err"), "stroke-dasharray": "4 3" }, svg);
   txt(svg, m.l - 4, Y(+g.objetivo) + 4, mm(+g.objetivo), { "text-anchor": "end" }); txt(svg, m.l - 4, Y(0), "0", { "text-anchor": "end" });
   txt(svg, m.l, H - 4, "hoy"); txt(svg, W - m.r, H - 4, `${nf(t[t.length - 1].mes / 12, 1)} años`, { "text-anchor": "end" });
-  const p = document.createElement("span"); p.className = "helper"; p.textContent = `Probabilidad ${pct(x.prob_exito, 0)} · banda p10–p90 y p25–p75`; box.appendChild(p);
+  const p = document.createElement("span"); p.className = "helper"; const ap = t[t.length - 1].aportado; p.textContent = `Probabilidad ${pct(x.prob_exito, 0)} · mediana ${mm(x.p50)}: ${mm(ap)} capital y aportes (gris) + ${mm(x.p50 - ap)} rentabilidad`; box.appendChild(p);
 }
 function drawCrisis(host, ep, dd) {
   const { x, e } = ep, P = x.path, W = Math.max(320, host.clientWidth || 520), H = 180, m = { l: 44, r: 8, t: 20, b: 20 };
