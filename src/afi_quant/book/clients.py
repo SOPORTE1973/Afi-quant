@@ -14,7 +14,7 @@ oct-2021).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from afi_quant.clients.ips import IPS, ExpectedFlow, LifeBalanceSheet, RiskLimits
@@ -30,6 +30,8 @@ class BookClient:
     ips: IPS
     onboarding: date
     asesor: str
+    eventos: list = field(default_factory=list)   # flujos extraordinarios registrados por el asesor
+    origen: str = "simulación"                     # "simulación" (libro de ejemplo) o "plataforma" (alta real)
 
 
 def _ips(cid, since, perfil, tol, cap, limits, patrimonio, fuera, flows, lbs, admin_pct=60.0, firmado=True):

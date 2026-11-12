@@ -29,9 +29,10 @@ from afi_quant.engines.risk import (
 from afi_quant.engines.series import NavPoint, month_end_points, trailing_window
 from afi_quant.orchestrator.decision_case import DecisionCase
 
-# Publicado por el conector (rentabilidades de rut 9194, hasta 2026-09-29).
-CONNECTOR_Y1_PCT = 20.05734403931867
-CONNECTOR_Y3_PCT = 105.79103603973947
+# Publicado por el conector (rentabilidades de rut 9194, hasta 2026-11-11). Al actualizar
+# los valores cuota de los fixtures, estas dos cifras se actualizan con las del conector.
+CONNECTOR_Y1_PCT = 6.013323023823225
+CONNECTOR_Y3_PCT = 105.06280530886225
 
 
 def _pts(values, start=date(2026, 1, 1)):
@@ -133,7 +134,8 @@ def test_risk_engine_on_real_data():
     result = RiskEngine().run(_case(nav_series_native_frequency=falcom_tactical()))
     v = result.values
     assert result.insufficient_data is False
-    assert v["n_retornos_mensuales"] == 36
+    pts = falcom_tactical().points
+    assert v["n_retornos_mensuales"] == len(month_end_points(pts)) - 1 >= 36
     assert 0 < v["volatilidad_anual"] < 1
     assert v["max_drawdown"] < 0
     assert v["var_99_1m"] >= v["var_95_1m"] > 0

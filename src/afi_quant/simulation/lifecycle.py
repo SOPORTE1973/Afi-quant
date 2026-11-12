@@ -102,8 +102,10 @@ def engine_registry() -> EngineRegistry:
 
 class LifecycleSimulation:
     def __init__(self, client: ClientProfile, universe: dict, registry_params, onboarding: date,
-                 ips=None, scenario_library=None):
+                 ips=None, scenario_library=None, extra_flows=None):
         self.client = client
+        # Flujos extraordinarios que registra el asesor: [{fecha, tipo: aporte|retiro, meta, monto, motivo}]
+        self.extra_flows = sorted(extra_flows or [], key=lambda f: str(f["fecha"]))
         self.universe = universe
         self.params = registry_params
         self.onboarding = onboarding
@@ -313,8 +315,13 @@ class LifecycleSimulation:
                     self._invest_flow(g, amount, ym)
                     self.record(as_of, "aporte", amount, g, True, {"motivo": "aporte mensual"})
                     contributed += amount
+            extra_in, extra_out = self._extra_flows(ym, as_of)
+            contributed += extra_in
+            withdrawn += extra_out
             if contributed:
                 self.flows.append((as_of, -contributed))
+            if extra_out:
+                self.flows.append((as_of, extra_out))
 
             if ym[1] in REVIEW_MONTHS:
                 self._review(ym, as_of, annual=ym[1] == ANNUAL_REVIEW_MONTH)
@@ -381,12 +388,56 @@ class LifecycleSimulation:
             gaps, gap_sum = dict(target), 1.0
         self.buy(goal, {k: amount * gaps[k] / gap_sum for k in gaps if gaps[k] > 0}, ym)
 
+    def _extra_flows(self, ym, as_of: date) -> tuple[float, float]:
+        """Aportes y retiros extraordinarios del mes. Un retiro vende a prorrata dentro de su meta
+        y nunca más de lo que la meta tiene; lo que no alcanza queda informado en el evento."""
+        tin = tout = 0.0
+        for f in self.extra_flows:
+            d = f["fecha"] if isinstance(f["fecha"], date) else date.fromisoformat(str(f["fecha"]))
+            if (d.year, d.month) != ym:
+                continue
+            g, amount, motivo = f["meta"], float(f["monto"]), f.get("motivo") or "flujo extraordinario"
+            if g not in self.active:
+                self.events.append(Event(as_of, "flujo_cliente", f"Flujo no aplicado: {g}",
+                                         f"La meta {g} ya no está activa; el {f['tipo']} de {clp(amount)} no se aplicó.",
+                                         {"flujo": f}))
+                continue
+            name = self.client.goal(g).nombre
+            if f["tipo"] == "aporte":
+                self._invest_flow(g, amount, ym)
+                self.record(as_of, "aporte", amount, g, True, {"motivo": motivo, "extraordinario": True})
+                tin += amount
+                text = f"Aporte extraordinario de {clp(amount)} a {name} ({motivo}), invertido según sus pesos objetivo."
+            else:
+                values = self.sleeve_values(ym)[g]
+                available = sum(values.values())
+                paid = min(amount, available)
+                if paid > 0:
+                    self.buy(g, {k: -v * paid / available for k, v in values.items()}, ym)
+                    self.record(as_of, "retiro", -paid, g, True, {"motivo": motivo, "extraordinario": True})
+                tout += paid
+                text = (f"Retiro extraordinario de {clp(paid)} desde {name} ({motivo}), vendido a prorrata."
+                        + (f" Se pidieron {clp(amount)}; la meta solo tenía {clp(available)}." if paid < amount else ""))
+                if paid >= available * (1 - 1e-9):
+                    # La meta queda sin saldo: se cierra, como cuando vence (sus aportes mensuales se suspenden)
+                    self.units.pop(g, None)
+                    self.targets.pop(g, None)
+                    self.active.remove(g)
+                    self.contributions.pop(g, None)
+                    text += " La meta quedó sin saldo: se cierra y sus aportes mensuales se suspenden."
+            self.events.append(Event(as_of, "flujo_cliente", f"{f['tipo'].capitalize()} extraordinario: {name}",
+                                     text, {"flujo": {**f, "fecha": d.isoformat()}}))
+        return tin, tout
+
     def _settle_goal(self, goal, ym, as_of: date) -> float:
         values = self.sleeve_values(ym)[goal.key]
         available = sum(values.values())
         withdraw = min(goal.monto_objetivo, available)
         surplus = available - withdraw
-        destination = next(g for g in self.active if g != goal.key and self.client.goal(g).fecha is not None)
+        destination = next((g for g in self.active if g != goal.key and self.client.goal(g).fecha is not None),
+                           next((g for g in self.active if g != goal.key), None))
+        if destination is None:              # última meta del cliente: el excedente también se retira
+            withdraw, surplus = available, 0.0
         self.buy(goal.key, {k: -v for k, v in values.items()}, ym)   # venta total de la meta
         del self.units[goal.key]
         del self.targets[goal.key]
@@ -397,9 +448,10 @@ class LifecycleSimulation:
             self.record(as_of, "transferencia_interna", surplus, destination, False,
                         {"desde": goal.key, "motivo": "excedente de la meta"})
         moved = self.contributions.pop(goal.key, 0.0)
-        self.contributions[destination] = self.contributions.get(destination, 0.0) + moved
+        if destination is not None:
+            self.contributions[destination] = self.contributions.get(destination, 0.0) + moved
         self.flows.append((as_of, withdraw))
-        dest_name = self.client.goal(destination).nombre
+        dest_name = self.client.goal(destination).nombre if destination is not None else "ninguna (última meta)"
         key = "meta_cumplida" if withdraw >= goal.monto_objetivo else "meta_deficit"
         ctx = {"evento": key, "meta": goal.nombre, "valor": clp(available),
                "objetivo": clp(goal.monto_objetivo), "excedente": clp(surplus),
@@ -534,7 +586,8 @@ def _month_ends(points):
     return month_end_points(points)
 
 
-def run_lifecycle(client=None, universe=None, params=None, onboarding=None, ips=None) -> LifecycleResult:
+def run_lifecycle(client=None, universe=None, params=None, onboarding=None, ips=None,
+                  extra_flows=None) -> LifecycleResult:
     from afi_quant.portfolio.universe import default_universe
     from afi_quant.simulation.parameters import (
         ONBOARDING_DATE, SCENARIO_LIBRARY, simulation_registry, synthetic_client, synthetic_ips,
@@ -547,4 +600,5 @@ def run_lifecycle(client=None, universe=None, params=None, onboarding=None, ips=
         onboarding or ONBOARDING_DATE,
         ips=ips or synthetic_ips(),
         scenario_library=SCENARIO_LIBRARY,
+        extra_flows=extra_flows,
     ).run()

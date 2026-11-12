@@ -151,8 +151,8 @@ def test_construction_blocks_with_institutional_registry(universe):
 def test_lifecycle_flows_add_up(lifecycle):
     s = lifecycle.summary
     months = s["meses"]
-    assert months == 23
-    # 150M iniciales + 1,5M mensuales por 23 meses (el aporte del pie pasa a jubilación).
+    assert months == len(lifecycle.rows) - 1 >= 23
+    # 150M iniciales + 1,5M mensuales por mes (el aporte del pie pasa a jubilación).
     assert s["aportado"] == pytest.approx(150_000_000 + 1_500_000 * months)
     assert s["retirado"] == pytest.approx(60_000_000)
     assert sum(s["valor_por_meta"].values()) == pytest.approx(s["valor_final"])
@@ -167,7 +167,7 @@ def test_lifecycle_key_events(lifecycle):
     glide = by_type["cambio_horizonte"][0]
     assert glide.fecha == date(2025, 7, 31) and glide.detalle["pesos"] == {"MM": 1.0}
     assert by_type["meta_cumplida"][0].fecha == date(2026, 6, 30)
-    assert by_type["cierre"][0].fecha == date(2026, 9, 29)
+    assert by_type["cierre"][0].fecha == lifecycle.rows[-1].fecha
     # Toda decisión quedó ligada a un Decision Case con explicación.
     case_ids = {c.case_id for c in lifecycle.cases}
     for e in lifecycle.events:

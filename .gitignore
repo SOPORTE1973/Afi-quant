@@ -10,3 +10,5 @@ build/
 .DS_Store
 .env
 apps/mesa_central/dist/
+# Plataforma local: fichas de clientes y datos calculados (no van al repositorio)
+apps/mesa_central/local/

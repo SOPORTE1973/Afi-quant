@@ -34,7 +34,7 @@ const retLabel = r => (r.meses >= 12)
 const cache = {};
 async function loadClient(id) {
   if (cache[id]) return cache[id];
-  const res = await fetch(`data/clientes/${id}.json`);
+  const res = await fetch(`data/clientes/${id}.json`, { cache: "no-store" });
   if (!res.ok) throw new Error(`No se pudieron cargar los datos de ${id} (${res.status})`);
   cache[id] = await res.json();
   return cache[id];
@@ -144,12 +144,7 @@ function renderModelDossier(host) {
 };
 
 /* ---------- Arranque ---------- */
-(async function boot() {
-  try {
-    const res = await fetch("data/libro.json");
-    if (!res.ok) throw new Error("libro.json " + res.status);
-    L = await res.json();
-  } catch (e) { $("v-libro").innerHTML = `<div class="notif err"><span>${si("alerta", "Error")}</span><span>No se pudieron cargar los datos: ${esc(e.message)}</span></div>`; return; }
+function libroLoaded() {
   VEH = L.vehiculos; VEH.forEach((k, i) => { VCOL[k] = `--c${i + 1}`; vname[k] = VNAME[k] || k; });
   // exposición y límites por cliente para la tabla del libro
   L.expo = {}; L.limite_adm = {};
@@ -158,10 +153,28 @@ function renderModelDossier(host) {
   $("b-cli").textContent = L.monitoreo.length;
   $("b-fund").textContent = VEH.length;
   $("nav-clients").innerHTML = L.monitoreo.map(a => `<button class="cl" data-client="${a.id}" data-open-client="${a.id}">${esc(L.clientes[a.id].nombre)} ${a.conteo.alerta ? `<span class="si alerta" aria-label="con alerta"></span>` : ""}</button>`).join("");
-  app.client = store.get("client", L.monitoreo[0].id);
+  if (!L.clientes[app.client]) app.client = store.get("client", null);
+  if (!L.clientes[app.client]) app.client = L.monitoreo[0].id;
   // pesos de cada cliente: se cargan en segundo plano para la tabla de exposición
   Promise.all(L.monitoreo.map(a => loadClient(a.id).then(c => { L.expo[a.id] = c.resumen.pesos_actuales; L.limite_adm[a.id] = c.ips.admin_max; }).catch(() => {})))
     .then(() => { if (app.view === "libro") RENDER.libro(); });
+}
+/* Vuelve a leer el libro (la plataforma local lo recalcula en el servidor) */
+async function reloadLibro() {
+  const res = await fetch("data/libro.json", { cache: "no-store" });
+  if (!res.ok) throw new Error("libro.json " + res.status);
+  L = await res.json();
+  Object.keys(cache).forEach(k => delete cache[k]);
+  libroLoaded();
+}
+
+(async function boot() {
+  try {
+    const res = await fetch("data/libro.json");
+    if (!res.ok) throw new Error("libro.json " + res.status);
+    L = await res.json();
+  } catch (e) { $("v-libro").innerHTML = `<div class="notif err"><span>${si("alerta", "Error")}</span><span>No se pudieron cargar los datos: ${esc(e.message)}</span></div>`; return; }
+  libroLoaded();
   // los demás scripts registran sus vistas en RENDER: esperar a que todos se hayan ejecutado
   if (document.readyState === "loading") await new Promise(r => addEventListener("DOMContentLoaded", r, { once: true }));
   let first = location.hash.slice(1); if (!VIEWS.includes(first)) first = store.get("view", "libro");

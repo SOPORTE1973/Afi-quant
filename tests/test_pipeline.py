@@ -20,7 +20,8 @@ def test_fund_review_runs_all_engines_and_explains():
     assert case.state == DecisionCaseState.ANALYZING
     assert list(case.engine_results) == ["benchmark", "performance", "risk"]
     assert all(not r.insufficient_data for r in case.engine_results.values())
-    assert "CFIFALCTAC rindió 105.79%" in case.explanation
+    twr = case.engine_results["performance"].values["twr_periodo"]
+    assert f"CFIFALCTAC rindió {twr:.2%}" in case.explanation
     assert "no sostiene una recomendación" in case.explanation
 
 

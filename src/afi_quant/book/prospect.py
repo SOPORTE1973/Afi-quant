@@ -45,7 +45,8 @@ def from_ficha(ficha: dict) -> tuple[ClientProfile, IPS, date]:
         goals.append(Goal(m["key"], m.get("nombre") or m["key"], m.get("prioridad") or "importante",
                           float(m["objetivo"]), fecha, float(m["capital"]), _num(m.get("aporte")) or 0.0,
                           probabilidad_deseada=None if prob is None or fecha is None else prob / 100,
-                          liquidez_requerida=m.get("liquidez") or None))
+                          liquidez_requerida=m.get("liquidez") or None,
+                          jubilacion=bool(m.get("jubilacion")) and fecha is not None))
     client = ClientProfile(p["id"], c.get("nombre") or p["id"],
                            date.fromisoformat(c["nacimiento"]) if c.get("nacimiento") else None,
                            r.get("perfil") or None, int(_num(r.get("puntaje"))) if _num(r.get("puntaje")) is not None else None,

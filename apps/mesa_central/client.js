@@ -9,7 +9,7 @@ const CAT_STYLE = {
   "Onboarding": { c: "--info", l: "O", shape: "circle" }, "Rebalanceo": { c: "--warn", l: "R", shape: "arrowDown" },
   "Glide path": { c: "--warn", l: "G", shape: "arrowDown" }, "Revisión anual": { c: "--info", l: "A", shape: "circle" },
   "Meta cumplida": { c: "--ok", l: "M", shape: "arrowUp" }, "Meta con déficit": { c: "--err", l: "M", shape: "arrowDown" },
-  "Alerta": { c: "--err", l: "!", shape: "arrowDown" }, "Cierre": { c: "--info", l: "C", shape: "circle" }, "Sin operar": { c: "--idle", l: "·", shape: "circle" } };
+  "Alerta": { c: "--err", l: "!", shape: "arrowDown" }, "Cierre": { c: "--info", l: "C", shape: "circle" }, "Flujo del cliente": { c: "--ok", l: "F", shape: "arrowUp" }, "Sin operar": { c: "--idle", l: "·", shape: "circle" } };
 const kpi = (l, v, n, c = "") => `<div class="kpi"><span class="lbl">${l}</span><span class="v sm${c}">${v}</span><span class="helper">${esc(n)}</span></div>`;
 function killCharts() { Object.values(cv.charts).forEach(ch => { try { ch.remove(); } catch (e) {} }); cv.charts = {}; if (typeof crStop === "function") crStop(); }
 const hasLW = () => typeof LightweightCharts !== "undefined";
@@ -61,6 +61,7 @@ CT.resumen = function (h, C) {
   const dims = C.monitoreo.dimensiones;
   h.innerHTML = `
     <div class="kpis">${kpi("Valor de la cartera", mm(S.valor_final), `aportado ${mm(S.aportado)} · retirado ${mm(S.retirado)}`)}${kpi("Ganancia acumulada", smm(F.ganancia_neta), "valor − aportes + retiros", F.ganancia_neta >= 0 ? " pos" : " neg")}${kpi(rl.l, rl.v, rl.n)}${worst ? kpi(`Probabilidad: ${worst.nombre}`, pct(C.metas_cierre[worst.key].prob_exito, 0), worst.prob_deseada != null ? `deseada ${pct(worst.prob_deseada, 0)}` : "sin probabilidad deseada en el IPS") : kpi("Retorno personal (XIRR)", pct(S.xirr, 1), "con el momento de sus aportes")}</div>
+    <div class="tile" id="ciclo"></div>
     <div class="tile"><h3>Estado de la cuenta</h3><div class="dims">${Object.entries(dims).map(([d, x]) => `<div class="dim">${si(x.estado, L.dimensiones[d] + " · " + ST_LABEL[x.estado])}<span>${esc(x.resumen)}</span><span class="helper">${esc(x.evidencia.slice(0, 3).join(" · "))}</span></div>`).join("")}</div></div>
     <div class="g2">
       <div class="tile"><div class="th"><h3>Aportado frente al valor</h3><button class="link" data-goto-tab="grafico">Abrir en el gráfico</button></div><div class="legend"><span><i style="--c:var(--interactive)"></i>Valor</span><span><i class="line"></i>Aportes netos</span></div><div id="mini" style="height:240px"></div></div>
@@ -78,6 +79,7 @@ CT.resumen = function (h, C) {
     return `<div class="goalrow"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(g.nombre)}</b>${si(g.prob_deseada == null ? "sin_datos" : below ? "alerta" : "ok", `${pct(m.prob_exito, 0)}${g.prob_deseada != null ? " · deseada " + pct(g.prob_deseada, 0) : ""}`)}</div>
       <div class="prog"><i style="width:${(m.prob_exito * 100).toFixed(0)}%"></i>${g.prob_deseada != null ? `<b style="left:${(g.prob_deseada * 100).toFixed(0)}%"></b>` : ""}</div>
       <span class="helper">${mm(g.objetivo)} al ${fdate(g.fecha)} · hoy ${mm(C.resumen.valor_por_meta[g.key])} · mediana proyectada ${mm(m.p50)}</span></div>`; }).join("");
+  renderCiclo($("ciclo"), C);
   if ($("desemb")) renderDesembolso($("desemb"), C);
   const ins = [];
   if (worst && worst.prob_deseada != null && C.metas_cierre[worst.key].prob_exito < worst.prob_deseada) ins.push({ st: "--err", t: `${worst.nombre} bajo lo deseado`, b: `Probabilidad ${pct(C.metas_cierre[worst.key].prob_exito, 0)} frente a ${pct(worst.prob_deseada, 0)} pedida en el IPS. Las palancas son aporte, plazo, monto o riesgo: decide el WM con el cliente.`, go: "riesgo" });
@@ -430,4 +432,30 @@ function renderDesembolso(h, C) {
   el("path", { d: t.map((p, i) => `${i ? "L" : "M"}${x(p.edad)},${y(p.p50)}`).join(""), fill: "none", stroke: css("--g2"), "stroke-width": 2.5 }, svg);
   el("path", { d: t.map((p, i) => `${i ? "L" : "M"}${x(p.edad)},${yp(p.vigente)}`).join(""), fill: "none", stroke: css("--err"), "stroke-width": 2, "stroke-dasharray": "5 3" }, svg);
   const last = t[t.length - 1]; txt(svg, x(last.edad) - 4, yp(last.vigente) + (last.vigente > .85 ? 16 : -6), `${pct(last.vigente, 0)} llega a los ${S.edad_final}`, { "text-anchor": "end", style: `fill:${css("--err-text")}` });
+}
+
+/* ---------- Ciclo de vida de la cuenta: en qué etapa está y qué viene ---------- */
+function renderCiclo(h, C) {
+  const N = C.noticias, by = tp => N.filter(n => n.tipo === tp), hoy = C.resumen.fecha;
+  const revs = N.filter(n => ["revision", "revision_anual", "alerta_caida"].includes(n.tipo)), acted = revs.filter(n => !n.quiet);
+  const glide = by("cambio_horizonte"), done = by("meta_cumplida"), short = by("meta_deficit"), flows = by("flujo_cliente");
+  const open = C.cliente.metas.filter(g => !g.cerrada && g.fecha && g.fecha > hoy).sort((a, b) => a.fecha < b.fecha ? -1 : 1);
+  const next = open[0], ipsDue = C.ips.revisar_antes_de, months = d => Math.round((new Date(d) - new Date(hoy)) / (30.44 * 864e5));
+  const D = Object.entries(C.desembolso || {})[0], jub = D ? C.cliente.metas.find(g => g.key === D[0]) : null;
+  const lvl = D && !D[1].no_calculado ? (D[1].carteras.largo || Object.values(D[1].carteras)[0]).niveles.find(l => l.confianza === 0.75) : null;
+  const st = [
+    { t: "Alta e IPS", s: "ok", d: `Inicio ${fdate(C.onboarding)} · IPS ${esc(C.ips.id)} vigente desde ${fdate(C.ips.vigente_desde)}` },
+    { t: "Construcción", s: "ok", d: `${C.cliente.metas.length} metas, una cartera por meta (MVO por horizonte)` },
+    { t: "Aportes", s: "ok", d: `${mm(C.resumen.aportado)} aportados · ${mm(C.cliente.metas.filter(g => !g.cerrada).reduce((a, g) => a + (g.aporte || 0), 0))}/mes${flows.length ? ` · ${flows.length} flujo${flows.length > 1 ? "s" : ""} extraordinario${flows.length > 1 ? "s" : ""}` : ""}` },
+    { t: "Monitoreo y revisiones", s: "now", d: `${revs.length} revisiones, ${acted.length} con propuesta${revs.length ? ` · última ${fdate(revs[revs.length - 1].fecha)}` : ""}` },
+    { t: "Glide path", s: glide.length ? "ok" : "wait", d: glide.length ? `${glide.length} cambio${glide.length > 1 ? "s" : ""} de horizonte` : "ninguna meta ha cambiado de horizonte aún" },
+    { t: "Metas", s: short.length ? "warn" : done.length ? "ok" : "wait", d: `${done.length} cumplida${done.length !== 1 ? "s" : ""}${short.length ? `, ${short.length} con déficit` : ""}${next ? ` · próxima: ${esc(next.nombre)} en ${fdate(next.fecha)}` : ""}` },
+    { t: "Revisión del IPS", s: months(ipsDue) <= 6 ? "warn" : "wait", d: `antes del ${fdate(ipsDue)} (${months(ipsDue)} meses) o ante un evento de vida` },
+    { t: "Jubilación y desembolso", s: jub ? "wait" : "na", d: jub ? `desde ${fdate(jub.fecha)}${lvl ? ` · retiro estimado ${mm(lvl.retiro_inicial)}/mes al 75%` : ""}` : "sin meta de jubilación en el IPS" },
+  ];
+  const col = { ok: "var(--ok)", now: "var(--interactive)", warn: "var(--warn)", wait: "var(--border-strong)", na: "var(--border)" };
+  const lab = { ok: "hecho", now: "en curso", warn: "atención", wait: "por venir", na: "no aplica" };
+  h.innerHTML = `<div class="th"><div><span class="lbl">${C.origen === "plataforma" ? "Cuenta ingresada en la plataforma" : "Cliente del libro de simulación"} · datos al ${fdate(hoy)}</span><h3>Ciclo de vida de la cuenta</h3></div><div id="ciclo-acc" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+    <div class="steps">${st.map(x => `<div class="step" style="--sc:${col[x.s]}"><b>${x.t}</b><span>${lab[x.s]} · ${x.d}</span></div>`).join("")}</div>
+    <div id="ciclo-form"></div>`;
 }

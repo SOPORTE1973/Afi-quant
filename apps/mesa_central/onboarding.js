@@ -214,11 +214,11 @@ const ob = { d: store.get("onb", null) || blankDraft(), res: null, parity: null,
 const obSave = () => store.set("onb", ob.d);
 const has = v => v !== "" && v != null;
 const goalReady = g => has(g.objetivo) && +g.objetivo > 0 && has(g.capital) && +g.capital >= 0 && (!g.fecha || monthsBetween(MO.as_of, g.fecha) > 0) && (g.fecha || g.reserva);
-const newGoal = (n) => ({ key: "m" + Date.now().toString(36) + n, nombre: "", prioridad: "importante", objetivo: "", fecha: "", reserva: false, capital: "", aporte: 0, prob_deseada: "", liquidez: "" });
+const newGoal = (n) => ({ key: "m" + Date.now().toString(36) + n, nombre: "", prioridad: "importante", objetivo: "", fecha: "", reserva: false, capital: "", aporte: 0, prob_deseada: "", liquidez: "", jubilacion: false });
 const GOAL_TEMPLATES = [["Fondo de emergencia", { prioridad: "esencial", reserva: true, liquidez: "disponible en 3 días hábiles" }],
   ["Pie de vivienda", { prioridad: "importante", anios: 3, prob_deseada: 80, liquidez: "efectivo en la fecha" }],
   ["Educación de los hijos", { prioridad: "importante", anios: 8, prob_deseada: 80, liquidez: "pagos anuales desde la fecha" }],
-  ["Capital de retiro", { prioridad: "esencial", anios: 20, prob_deseada: 75, liquidez: "retiros programados" }]];
+  ["Jubilación", { prioridad: "esencial", anios: 20, prob_deseada: 75, liquidez: "retiros mensuales desde la jubilación", jubilacion: true }]];
 
 /* Catálogo de información (ESFS 9.1 / DF 5.2): estado de lo que declara el cliente */
 function clientCatalogValue(v) {
@@ -324,7 +324,7 @@ function loadExample() {
     cliente: { nombre: "Prospecto de ejemplo", nacimiento: "1985-06-01", pais: "Chile", segmento: "Wealth, persona natural", asesor: "Asesor A", moneda: "CLP" },
     riesgo: { perfil: "Moderado", puntaje: 55, capacidad: "Media", capacidad_motivo: "ingresos estables, 20 años al retiro, compromisos de vivienda en 30 meses", vol: P.vol, var: P.var, es: P.es, dd: P.dd },
     patrimonio: { total: 450000000, fuera: 238000000, capital_humano: 900000000, activos_nf: 180000000, pasivos: 60000000, compromisos: 90000000, esg: "sin exclusiones declaradas", regulatorias: "persona natural, sin restricciones", familiares: "ninguna declarada", admin: 60 },
-    metas: C.metas.map(m => ({ key: m.key, nombre: m.nombre, prioridad: m.prioridad, objetivo: m.objetivo, fecha: m.fecha || "", reserva: !m.fecha, capital: m.capital, aporte: m.aporte, prob_deseada: m.prob_deseada == null ? "" : m.prob_deseada * 100, liquidez: m.liquidez || "" })) };
+    metas: C.metas.map(m => ({ key: m.key, nombre: m.nombre, prioridad: m.prioridad, objetivo: m.objetivo, fecha: m.fecha || "", reserva: !m.fecha, capital: m.capital, aporte: m.aporte, prob_deseada: m.prob_deseada == null ? "" : m.prob_deseada * 100, liquidez: m.liquidez || "", jubilacion: m.key === "retiro" })) };
   obSave(); RENDER.alta();
 }
 
@@ -394,6 +394,7 @@ OBS.metas = function (h) {
         ${money(`metas.${n}.objetivo`, "Monto objetivo")}
         ${g.reserva ? `<label class="fld"><span class="lbl">Fecha</span><input value="Reserva permanente" disabled></label>` : fld(`metas.${n}.fecha`, "Fecha", "date", `min="${MO.as_of}"`, m != null ? (m > 0 ? `${m} meses desde ${fdate(MO.as_of)}` : "debe ser posterior a la fecha de los datos") : "")}
         <label class="fld chkf"><input type="checkbox" data-k="metas.${n}.reserva" ${g.reserva ? "checked" : ""}><span>Sin fecha: reserva de liquidez</span></label>
+        ${g.reserva ? "" : `<label class="fld chkf"><input type="checkbox" data-k="metas.${n}.jubilacion" ${g.jubilacion ? "checked" : ""}><span>Es la jubilación: calcular el desembolso</span></label>`}
         ${money(`metas.${n}.capital`, "Capital inicial asignado")}${money(`metas.${n}.aporte`, "Aporte mensual")}
         ${g.reserva ? "" : fld(`metas.${n}.prob_deseada`, "Probabilidad deseada %", "number", 'min="1" max="99"')}${fld(`metas.${n}.liquidez`, "Liquidez requerida")}</div></div>`; }).join("");
   const cap = G.reduce((a, g) => a + (+g.capital || 0), 0), pt = +ob.d.patrimonio.total || 0;
@@ -404,7 +405,7 @@ OBS.metas = function (h) {
   h.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => { G.splice(+b.dataset.del, 1); obSave(); RENDER.alta(); }));
   $("ob-add").addEventListener("click", () => { G.push(newGoal(G.length)); obSave(); RENDER.alta(); });
   h.querySelectorAll("[data-tpl]").forEach(b => b.addEventListener("click", () => { const [n, t] = GOAL_TEMPLATES[+b.dataset.tpl], g = newGoal(G.length);
-    Object.assign(g, { nombre: n, prioridad: t.prioridad, reserva: !!t.reserva, liquidez: t.liquidez, prob_deseada: t.prob_deseada ?? "" });
+    Object.assign(g, { nombre: n, prioridad: t.prioridad, reserva: !!t.reserva, liquidez: t.liquidez, prob_deseada: t.prob_deseada ?? "", jubilacion: !!t.jubilacion });
     if (t.anios) { const [y, m] = MO.as_of.split("-").map(Number); g.fecha = `${y + t.anios}-${String(m).padStart(2, "0")}-28`; } G.push(g); obSave(); RENDER.alta(); }));
 };
 const kpiS = (l, v, n) => `<div class="kpi"><span class="lbl">${l}</span><span class="v sm">${v}</span><span class="helper">${esc(n)}</span></div>`;

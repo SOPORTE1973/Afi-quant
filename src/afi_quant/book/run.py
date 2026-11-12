@@ -35,69 +35,84 @@ class BookResult:
     notes: list[str] = field(default_factory=list)
 
 
-def run_book(clients: list[BookClient] | None = None) -> BookResult:
-    clients = clients or book_clients()
-    universe = default_universe()
-    params = simulation_registry()
-    P = lambda n: get_parameter(n, params).value
-
-    results = {bc.client.client_id: run_lifecycle(client=bc.client, universe=universe, params=params,
-                                                  onboarding=bc.onboarding, ips=bc.ips)
-               for bc in clients}
-    as_of = max(date.fromisoformat(r.summary["fecha"]) for r in results.values())
-
-    # M10 — un due diligence por fondo, compartido por todo el libro
+def fund_reviews(universe, as_of: date, P, quality: dict) -> dict[str, FundReview]:
+    """M10 — un due diligence por fondo, compartido por todo el libro."""
     dossiers = load_dossiers()
-    quality = next(iter(results.values())).advisory["calidad_datos"]["series"]
     proxies = policy_benchmark_proxies()
     dd_params = {p: P(p) for p in DD_PARAMS}
-    reviews = {
+    return {
         k: review_fund(k, v, dossiers["fondos"][k], as_of, dd_params,
                        index_series=proxies[PASSIVE_INDEX[k]].series if k in PASSIVE_INDEX else None,
                        rf_series=universe["MM"].series, data_quality=quality.get(k))
         for k, v in universe.items()
     }
 
-    # M09 Monitoring — por cuenta, sin puntaje
-    band = float(P("rebalancing_band_pct")) / 100
-    max_hhi = P("max_hhi")
-    accounts = []
-    for bc in clients:
-        r = results[bc.client.client_id]
-        accounts.append({
-            "id": bc.client.client_id, "nombre": bc.client.nombre, "asesor": bc.asesor,
-            "perfil": bc.client.perfil_riesgo, "valor": r.summary["valor_final"],
-            "dimensiones": monitor_account(r, bc.ips, universe, band, max_hhi, reviews),
-            "datos_criticos_faltantes": [c["variable"] for c in r.advisory["catalogo"]
-                                         if c["estado"] == "missing_critical"],
-        })
-    monitoring = prioritize(accounts)
 
-    # Agregados del libro
+def account_entry(bc: BookClient, r: LifecycleResult, universe, P, reviews) -> dict:
+    """M09 Monitoring de una cuenta, sin puntaje."""
+    return {
+        "id": bc.client.client_id, "nombre": bc.client.nombre, "asesor": bc.asesor,
+        "perfil": bc.client.perfil_riesgo, "valor": r.summary["valor_final"],
+        "dimensiones": monitor_account(r, bc.ips, universe, float(P("rebalancing_band_pct")) / 100,
+                                       P("max_hhi"), reviews),
+        "datos_criticos_faltantes": [c["variable"] for c in r.advisory["catalogo"]
+                                     if c["estado"] == "missing_critical"],
+    }
+
+
+def holdings_entry(bc: BookClient, r: LifecycleResult) -> dict:
+    """Lo que cada cuenta aporta a los agregados del libro."""
+    return {"id": bc.client.client_id, "asesor": bc.asesor,
+            "por_fondo": {k: v for k, v in r.rows[-1].valor_por_vehiculo.items() if v > 0},
+            "valor": r.summary["valor_final"], "aportado": r.summary["aportado"],
+            "retirado": r.summary["retirado"]}
+
+
+def book_aggregates(holdings: list[dict], universe, eligible: dict[str, bool], signals: dict[str, bool]) -> dict:
     by_fund, by_admin, by_advisor = {}, {}, {}
     holders = {k: [] for k in universe}
-    for bc in clients:
-        r = results[bc.client.client_id]
-        vals = r.rows[-1].valor_por_vehiculo
-        for k, v in vals.items():
-            if v <= 0:
-                continue
+    for h in holdings:
+        for k, v in h["por_fondo"].items():
             by_fund[k] = by_fund.get(k, 0.0) + v
             adm = universe[k].administradora
             by_admin[adm] = by_admin.get(adm, 0.0) + v
-            holders[k].append({"cliente": bc.client.client_id, "valor": v})
-        by_advisor[bc.asesor] = by_advisor.get(bc.asesor, 0.0) + r.summary["valor_final"]
-    aum = sum(by_fund.values())
-    aggregates = {
-        "aum": aum, "por_fondo": by_fund, "por_administradora": by_admin, "por_asesor": by_advisor,
-        "tenedores": holders,
-        "aum_en_fondos_sin_dd": sum(v for k, v in by_fund.items() if not reviews[k].elegibilidad["elegible"]),
-        "aum_en_fondos_con_senales": sum(v for k, v in by_fund.items() if reviews[k].senales),
-        "aportes": sum(r.summary["aportado"] for r in results.values()),
-        "retiros": sum(r.summary["retirado"] for r in results.values()),
+            holders[k].append({"cliente": h["id"], "valor": v})
+        by_advisor[h["asesor"]] = by_advisor.get(h["asesor"], 0.0) + h["valor"]
+    return {
+        "aum": sum(by_fund.values()), "por_fondo": by_fund, "por_administradora": by_admin,
+        "por_asesor": by_advisor, "tenedores": holders,
+        "aum_en_fondos_sin_dd": sum(v for k, v in by_fund.items() if not eligible[k]),
+        "aum_en_fondos_con_senales": sum(v for k, v in by_fund.items() if signals[k]),
+        "aportes": sum(h["aportado"] for h in holdings),
+        "retiros": sum(h["retirado"] for h in holdings),
     }
-    return BookResult(as_of, clients, results, reviews, monitoring, aggregates, notes=[
-        PRIORITY_RULE,
-        "Dimensiones del monitoreo: propuesta mientras ESFS-02 esté abierto (" + ", ".join(DIMENSIONS) + ").",
-        "Clientes, IPS y parámetros son de simulación; NAV, fichas y carteras de los fondos son reales.",
-    ])
+
+
+BOOK_NOTES = [
+    PRIORITY_RULE,
+    "Dimensiones del monitoreo: propuesta mientras ESFS-02 esté abierto (" + ", ".join(DIMENSIONS) + ").",
+    "Clientes, IPS y parámetros son de simulación; NAV, fichas y carteras de los fondos son reales.",
+]
+
+
+def run_client(bc: BookClient, universe, params) -> LifecycleResult:
+    return run_lifecycle(client=bc.client, universe=universe, params=params, onboarding=bc.onboarding,
+                         ips=bc.ips, extra_flows=bc.eventos)
+
+
+def run_book(clients: list[BookClient] | None = None) -> BookResult:
+    clients = clients or book_clients()
+    universe = default_universe()
+    params = simulation_registry()
+    P = lambda n: get_parameter(n, params).value
+
+    results = {bc.client.client_id: run_client(bc, universe, params) for bc in clients}
+    as_of = max(date.fromisoformat(r.summary["fecha"]) for r in results.values())
+    quality = next(iter(results.values())).advisory["calidad_datos"]["series"]
+    reviews = fund_reviews(universe, as_of, P, quality)
+    monitoring = prioritize([account_entry(bc, results[bc.client.client_id], universe, P, reviews)
+                             for bc in clients])
+    aggregates = book_aggregates([holdings_entry(bc, results[bc.client.client_id]) for bc in clients], universe,
+                                 {k: rv.elegibilidad["elegible"] for k, rv in reviews.items()},
+                                 {k: bool(rv.senales) for k, rv in reviews.items()})
+    return BookResult(as_of, clients, results, reviews, monitoring, aggregates, notes=list(BOOK_NOTES))

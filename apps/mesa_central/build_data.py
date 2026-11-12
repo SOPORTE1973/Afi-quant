@@ -14,7 +14,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from afi_quant.book.run import run_book
+from afi_quant.book.run import holdings_entry, run_book
 from motor_data import clean, motor_payload
 from afi_quant.data.fixtures import afp_sistema_c
 from afi_quant.due_diligence.catalog import screen_catalog
@@ -36,7 +36,7 @@ from afi_quant.simulation.parameters import SCENARIO_LIBRARY, SIMULATION_VALUES,
 
 CAT = {"onboarding": "Onboarding", "revision": "Rebalanceo", "cambio_horizonte": "Glide path",
        "revision_anual": "Revisión anual", "meta_cumplida": "Meta cumplida", "meta_deficit": "Meta con déficit",
-       "alerta_caida": "Alerta", "cierre": "Cierre"}
+       "alerta_caida": "Alerta", "cierre": "Cierre", "flujo_cliente": "Flujo del cliente"}
 
 
 def js(x):
@@ -177,6 +177,11 @@ def cartera_block(bc, r, u, dossiers) -> dict:
     }
 
 
+def client_entry(bc, r) -> dict:
+    return {"nombre": bc.client.nombre, "perfil": bc.client.perfil_riesgo, "asesor": bc.asesor,
+            "valor": r.summary["valor_final"], "origen": bc.origen, "alta": bc.onboarding}
+
+
 def client_payload(bc, r, u, prox, P, account):
     c, ips = bc.client, bc.ips
     a, close, s = r.advisory, r.closing_results, r.summary
@@ -217,7 +222,8 @@ def client_payload(bc, r, u, prox, P, account):
     goal_meta = close["clientgoal"]["metas"]
     lim = ips.limites_riesgo
     return {
-        "id": c.client_id, "asesor": bc.asesor, "monitoreo": account,
+        "id": c.client_id, "asesor": bc.asesor, "monitoreo": account, "origen": bc.origen,
+        "eventos_cliente": bc.eventos,
         "cliente": {"id": c.client_id, "nombre": c.nombre, "edad": c.age(r.onboarding), "perfil": c.perfil_riesgo,
                     "puntaje": c.puntaje_cuestionario, "gasto": c.gasto_mensual,
                     "metas": [{"key": g.key, "nombre": g.nombre, "prioridad": g.prioridad, "objetivo": g.monto_objetivo,
@@ -271,10 +277,10 @@ def client_payload(bc, r, u, prox, P, account):
     }
 
 
-def main(out_dir: str):
+def main(out_dir: str, clients=None):
     out = Path(out_dir)
     (out / "clientes").mkdir(parents=True, exist_ok=True)
-    b = run_book()
+    b = run_book(clients)
     u = default_universe()
     prox = policy_benchmark_proxies()
     reg = simulation_registry()
@@ -306,10 +312,7 @@ def main(out_dir: str):
     shared = {
         "as_of": b.as_of, "notas": b.notes, "dimensiones": {d: DIMENSION_NAMES[d] for d in DIMENSIONS},
         "agregados": b.aggregates, "monitoreo": b.monitoring, "fondos": funds, "vehiculos": VEH,
-        "clientes": {bc.client.client_id: {"nombre": bc.client.nombre, "perfil": bc.client.perfil_riesgo,
-                                           "asesor": bc.asesor,
-                                           "valor": b.results[bc.client.client_id].summary["valor_final"]}
-                     for bc in b.clients},
+        "clientes": {bc.client.client_id: client_entry(bc, b.results[bc.client.client_id]) for bc in b.clients},
         "universo": {k: {"nombre": v.nombre, "adm": v.administradora, "clase": v.clase_activo, "subclase": v.subclase,
                          "liquidez": v.liquidez, "rut": v.series.rut, "precio_mercado": v.precio_de_mercado}
                      for k, v in u.items()},
@@ -325,6 +328,10 @@ def main(out_dir: str):
     motor = motor_payload(u, reg, P, b.as_of, cat0)
     (out / "motor.json").write_text(json.dumps(clean(motor), ensure_ascii=False, separators=(",", ":")),
                                     encoding="utf-8")
+    # Lo que la plataforma necesita para agregar o recalcular una cuenta sin correr todo el libro
+    (out / "_estado.json").write_text(json.dumps(js({
+        "holdings": [holdings_entry(bc, b.results[bc.client.client_id]) for bc in b.clients],
+    }), ensure_ascii=False), encoding="utf-8")
     sizes = {}
     for bc in b.clients:
         cid = bc.client.client_id
