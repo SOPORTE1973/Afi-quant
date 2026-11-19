@@ -123,13 +123,16 @@ def fingerprint() -> str:
 # --- Cálculo del libro ----------------------------------------------------
 
 def full_build() -> None:
+    """Calcula en una carpeta aparte y la reemplaza al final: mientras tanto se sigue sirviendo el libro anterior."""
+    import shutil
     from build_data import main as build_data
-    out = DATA
-    for old in (out / "clientes").glob("*.json") if (out / "clientes").exists() else []:
-        old.unlink()
-    build_data(str(out), clients=active_clients())
-    (out / "_huella.json").write_text(json.dumps({"huella": fingerprint(), "calculado": datetime.now().isoformat()}),
+    tmp = LOCAL / "data_nuevo"
+    shutil.rmtree(tmp, ignore_errors=True)
+    build_data(str(tmp), clients=active_clients())
+    (tmp / "_huella.json").write_text(json.dumps({"huella": fingerprint(), "calculado": datetime.now().isoformat()}),
                                       encoding="utf-8")
+    shutil.rmtree(DATA, ignore_errors=True)
+    tmp.rename(DATA)
 
 
 def _context():

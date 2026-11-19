@@ -3,7 +3,7 @@
    → factores → concentración (look-through) → lectura. */
 "use strict";
 const DIM_NAMES = { clase: "Clase de activo", subclase: "Subclase (taxonomía AFI)", moneda: "Moneda económica", geografia: "Geografía", liquidez: "Liquidez de rescate", administradora: "Administradora" };
-const FLOW = [["c-arq", "Construcción"], ["c-pos", "Posiciones"], ["c-dim", "Clase, moneda y geografía"], ["c-vin", "Vintage"], ["c-rsk", "Correlación y riesgo"], ["c-fac", "Factores"], ["c-con", "Concentración"], ["c-ren", "Rentabilidad"], ["c-lec", "Lectura"]];
+const FLOW = [["c-arq", "Construcción"], ["c-pos", "Posiciones"], ["c-ins", "Instrumentos"], ["c-dim", "Clase, moneda y geografía"], ["c-vin", "Vintage"], ["c-rsk", "Correlación y riesgo"], ["c-fac", "Factores"], ["c-con", "Concentración"], ["c-ren", "Rentabilidad"], ["c-lec", "Lectura"]];
 
 CT.cartera = function (h, C) {
   const K = C.cartera, S = C.resumen, Dr = C.drift, dv = C.div_cierre, R = C.rentabilidad, Mx = K.medidas;
@@ -19,6 +19,10 @@ CT.cartera = function (h, C) {
     <section class="tile" id="c-pos"><div class="th"><div><span class="lbl">2 · Posiciones</span><h3>Qué tiene el cliente, por meta y fondo</h3></div><label class="helper" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="pos-closed"> Mostrar posiciones cerradas</label></div>
       <div class="tw"><table class="dt" id="pos"></table></div>
       <p class="helper">Costo a precio promedio. La ganancia realizada viene de ventas por rebalanceos, cambios de horizonte y metas cumplidas. Posiciones simuladas: el conector no trae posiciones de clientes; en producción vendrían del custodio (ESFS M04).</p></section>
+
+    <section class="tile" id="c-ins"><div class="th"><div><span class="lbl">2b · Instrumentos</span><h3>En qué fondos y ETF está invertido</h3></div><span class="helper">${esc(L.fuente_instrumentos ? "Ficha del conector al " + fdate(L.fuente_instrumentos.consultado) : "")}</span></div>
+      <div class="ins" id="ins"></div>
+      <p class="helper">Cada instrumento es un fondo o ETF del universo aprobado: AFI no elige acciones ni bonos directos. Valor del cliente al ${fdate(S.fecha)}; identificación, costos y rentabilidades desde el conector MCP Afitrading (Folleto Informativo de la CMF para la TAC). El costo anual estimado es el valor del cliente por la TAC de su serie.</p></section>
 
     <section class="tile" id="c-dim"><span class="lbl">3 · Clase, moneda y geografía</span><h3>Cómo se reparte la cartera</h3><div class="g2" id="dims"></div>
       <p class="helper">Moneda económica: el fondo global se compra en pesos pero invierte en ETF listados en EE.UU., así que su valor sigue al dólar (cartera IFRS informada a la CMF, ámbito extranjero 100%).</p></section>
@@ -74,6 +78,26 @@ CT.cartera = function (h, C) {
     $("pos").innerHTML = `<thead><tr><th>Meta</th><th>Fondo</th><th>Cuotas</th><th>Valor cuota</th><th>Valor</th><th>Peso</th><th>Costo</th><th>Ganancia no realizada</th><th>Realizada</th><th>Primera compra</th><th>Rescate</th></tr></thead><tbody>${P.map(p => `<tr${p.vigente ? "" : ' style="color:var(--text-3)"'}><td>${esc(gname[p.meta] || p.meta)}</td><td><span class="sw" style="--c:${vc(p.vehiculo)}"></span>${p.vehiculo} · ${VNAME[p.vehiculo]}</td><td class="n">${nf(p.unidades, 0)}</td><td class="n">${nf(p.valor_cuota, 2)}</td><td class="n">${mm(p.valor)}</td><td class="n">${pct(p.valor / tv, 1)}</td><td class="n">${mm(p.costo)}</td><td class="n${cls(p.ganancia_no_realizada)}">${smm(p.ganancia_no_realizada)}${p.costo ? ` <span class="helper">${spct(p.ganancia_no_realizada / p.costo, 1)}</span>` : ""}</td><td class="n${cls(p.ganancia_realizada)}">${p.ganancia_realizada ? smm(p.ganancia_realizada) : "—"}</td><td class="n">${fdate(p.primera_compra)}</td><td>${esc(L.universo[p.vehiculo].liquidez)}</td></tr>`).join("")}
       <tr><td colspan="4"><b>Total</b></td><td class="n"><b>${mm(P.reduce((a, p) => a + p.valor, 0))}</b></td><td></td><td class="n">${mm(P.reduce((a, p) => a + p.costo, 0))}</td><td class="n"><b>${smm(P.reduce((a, p) => a + p.ganancia_no_realizada, 0))}</b></td><td class="n">${smm(K.posiciones.reduce((a, p) => a + p.ganancia_realizada, 0))}</td><td colspan="2"></td></tr></tbody>`; };
   $("pos-closed").addEventListener("change", drawPos); drawPos();
+
+  // 2b · Instrumentos (fondos y ETF)
+  const byV = {}; K.posiciones.filter(p => p.vigente).forEach(p => { const b = byV[p.vehiculo] = byV[p.vehiculo] || { unidades: 0, valor: 0, metas: [] }; b.unidades += p.unidades; b.valor += p.valor; b.vc = p.valor_cuota; b.metas.push(gname[p.meta] || p.meta); });
+  const totI = Object.values(byV).reduce((a, b) => a + b.valor, 0);
+  $("ins").innerHTML = Object.entries(byV).sort((a, b) => b[1].valor - a[1].valor).map(([k, b]) => { const f = (L.fondos[k] || {}).conector, u = L.universo[k];
+    if (!f) return `<div class="insc"><b>${k} · ${esc(u.nombre)}</b><span class="helper">Sin ficha del conector.</span></div>`;
+    const c = f.costos, r = f.rentabilidad_pct, cost = c.tac_serie_pct == null ? null : b.valor * c.tac_serie_pct / 100, hi = c.tac_serie_pct != null && c.tac_industria_pct != null && c.tac_serie_pct > c.tac_industria_pct;
+    const rp = v => v == null ? "—" : `<span class="${v < 0 ? "neg" : ""}">${(v > 0 ? "+" : "") + nf(v, 1)}%</span>`;
+    return `<div class="insc" style="border-left:3px solid ${vc(k)}">
+      <div class="th"><div><span class="lbl">${esc(f.vehiculo)} · ${esc(f.nemotecnico)} · RUN ${esc(f.rut)} serie ${esc(f.serie)}</span><b style="font-size:15px">${esc(f.nombre)}</b><span class="helper">${esc(f.administradora)} · ${esc(f.clase)} / ${esc(f.subclase)}</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${f.estado === "Abierto" ? si("ok", "Abierto") : si("atencion", f.estado)}<button class="link" data-open-fund="${k}">Due diligence</button></div></div>
+      <div class="kpis">${[["Valor del cliente", mm(b.valor), `${pct(b.valor / totI, 1)} de la cartera · ${b.metas.join(", ")}`], ["Cuotas", nf(b.unidades, 0), `valor cuota ${nf(b.vc, 2)} al ${fdate(S.fecha)}`],
+        ["TAC de la serie", c.tac_serie_pct == null ? "no informa" : nf(c.tac_serie_pct, 2) + "%", `industria ${c.tac_industria_pct == null ? "—" : nf(c.tac_industria_pct, 2) + "%"} · folleto al ${fdate(c.folleto_al)}`, hi ? " neg" : ""],
+        ["Costo anual estimado", cost == null ? "—" : mm(cost), "valor del cliente × TAC"]].map(([l, v, n, k2]) => `<div class="kpi"><span class="lbl">${l}</span><span class="v sm${k2 || ""}">${v}</span><span class="helper">${esc(n)}</span></div>`).join("")}</div>
+      <dl class="kv"><dt>Rentabilidad</dt><dd class="num">1 mes ${rp(r["1m"])} · año ${rp(r.anio)} · 1 año ${rp(r["1a"])} · 3 años ${rp(r["3a"])} <span class="helper">al ${fdate(f.valor_cuota_al)}, NAV ajustado</span></dd>
+        <dt>Rescates</dt><dd>${esc(c.rescates)}</dd><dt>Perfil del folleto</dt><dd>tolerancia ${esc(c.tolerancia_riesgo).toLowerCase()} · horizonte ${esc(c.horizonte).toLowerCase()}</dd>
+        <dt>Factsheet</dt><dd>${fdate(f.factsheet.fecha)}${f.otras_series.length ? ` · otras series del fondo: ${esc(f.otras_series.join(", "))}` : ""}</dd></dl>
+      ${f.estado !== "Abierto" ? `<div class="notif warn"><span>${si("atencion", f.estado)}</span><span>El fondo está en estado «${esc(f.estado)}» en el conector: puede no aceptar nuevos aportes. Revisar antes de invertir aportes futuros o rebalancear hacia él.</span></div>` : ""}
+      ${hi ? `<div class="notif warn"><span>${si("atencion", "Costo")}</span><span>La TAC de la serie (${nf(c.tac_serie_pct, 2)}%) supera el promedio de fondos comparables (${nf(c.tac_industria_pct, 2)}%). Puede incluir la comisión por desempeño del período.</span></div>` : ""}</div>`; }).join("") +
+    `<p class="helper"><b>Costo anual estimado de la cartera:</b> ${mm(Object.entries(byV).reduce((a, [k, b]) => { const c = ((L.fondos[k] || {}).conector || {}).costos; return a + (c && c.tac_serie_pct != null ? b.valor * c.tac_serie_pct / 100 : 0); }, 0))} (${pct(Object.entries(byV).reduce((a, [k, b]) => { const c = ((L.fondos[k] || {}).conector || {}).costos; return a + (c && c.tac_serie_pct != null ? b.valor * c.tac_serie_pct / 100 : 0); }, 0) / totI, 2)} del valor).</p>`;
 
   // 3 · Dimensiones (barras 100%)
   $("dims").innerHTML = Object.entries(K.exposiciones).map(([d, parts]) => { const e = Object.entries(parts).sort((a, b) => b[1] - a[1]);

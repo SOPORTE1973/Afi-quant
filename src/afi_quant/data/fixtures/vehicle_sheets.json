@@ -1,0 +1,220 @@
+{
+ "fuente": "nota_fondo del conector MCP Afitrading (ficha, rentabilidades sobre NAV ajustado y Folleto Informativo CMF por serie)",
+ "consultado": "2026-11-19",
+ "fondos": {
+  "RF": {
+   "rut": "9705",
+   "serie": "UNICA",
+   "nemotecnico": "CFIETFCC",
+   "nombre": "FONDO DE INVERSIÓN ETF SINGULAR CHILE CORPORATIVO",
+   "nombre_corto": "CHILE CORPORATIVO",
+   "tipo_cmf": "FIRES",
+   "vehiculo": "ETF",
+   "administradora": "SINGULAR ASSET MANAGEMENT ADMINISTRADORA GENERAL DE FONDOS S.A.",
+   "categoria": "Tradicional",
+   "clase": "Renta Fija",
+   "subclase": "Deuda Corporativa Local",
+   "estado": "Abierto",
+   "moneda": "CLP",
+   "valor_cuota": 1546.4607,
+   "valor_cuota_al": "2026-11-18",
+   "rentabilidad_pct": {
+    "1d": -0.05,
+    "1m": 0.17,
+    "mes": -0.35,
+    "anio": 6.18,
+    "1a": 6.31,
+    "3a": 26.25
+   },
+   "costos": {
+    "folleto_al": "2026-09-30",
+    "tac_serie_pct": 0.29,
+    "tac_industria_pct": 1.07,
+    "remuneracion_max_pct": 0.2,
+    "gasto_max_pct": 0.5,
+    "comision_max_pct": 0.0,
+    "rescates": "15 días corridos contados desde la fecha de presentación de la solicitud de rescate o el día hábil siguiente en caso que ese día sea sábado, domingo o festivo.",
+    "tolerancia_riesgo": "Media",
+    "horizonte": "Más de 6 meses"
+   },
+   "otras_series": [],
+   "factsheet": {
+    "fecha": "2026-11-04",
+    "archivo": "20261104_FS_ETF_Singular_Chile_Corporativo.pdf"
+   },
+   "datos_hasta": "2026-11-18"
+  },
+  "MM": {
+   "rut": "9823",
+   "serie": "UNICA",
+   "nemotecnico": "CFIETFCD",
+   "nombre": "FONDO DE INVERSION ETF SINGULAR CHILE CORTA DURACION",
+   "nombre_corto": "CHILE CORTA DURACION",
+   "tipo_cmf": "FIRES",
+   "vehiculo": "ETF",
+   "administradora": "SINGULAR ASSET MANAGEMENT ADMINISTRADORA GENERAL DE FONDOS S.A.",
+   "categoria": "Tradicional",
+   "clase": "Renta Fija",
+   "subclase": "Money Market",
+   "estado": "Abierto",
+   "moneda": "CLP",
+   "valor_cuota": 1284.2385,
+   "valor_cuota_al": "2026-11-18",
+   "rentabilidad_pct": {
+    "1d": 0.01,
+    "1m": 0.39,
+    "mes": 0.22,
+    "anio": 3.89,
+    "1a": 4.44,
+    "3a": 17.15
+   },
+   "costos": {
+    "folleto_al": "2026-09-30",
+    "tac_serie_pct": 0.43,
+    "tac_industria_pct": 1.07,
+    "remuneracion_max_pct": 0.2,
+    "gasto_max_pct": 0.5,
+    "comision_max_pct": 0.0,
+    "rescates": "15 días corridos contados desde la fecha de presentación de la solicitud de rescate o el día hábil siguiente en caso que ese día sea sábado, domingo o festivo.",
+    "tolerancia_riesgo": "Baja",
+    "horizonte": "Más de 3 meses"
+   },
+   "otras_series": [],
+   "factsheet": {
+    "fecha": "2026-11-04",
+    "archivo": "20261104_FS_ETF_Singular_Chile_Corta_Duración.pdf"
+   },
+   "datos_hasta": "2026-11-18"
+  },
+  "DP": {
+   "rut": "10145",
+   "serie": "A",
+   "nemotecnico": "CFIBTGPLAA",
+   "nombre": "BTG PACTUAL LIQUIDEZ ALTERNATIVA FONDO DE INVERSIÓN",
+   "nombre_corto": "LIQUIDEZ ALTERNATIVA",
+   "tipo_cmf": "FIRES",
+   "vehiculo": "Fondo de inversión",
+   "administradora": "BTG PACTUAL CHILE S.A. ADMINISTRADORA GENERAL DE FONDOS",
+   "categoria": "Alternativo",
+   "clase": "Deuda Privada",
+   "subclase": "Facturas",
+   "estado": "Softclose",
+   "moneda": "CLP",
+   "valor_cuota": 15858.3215,
+   "valor_cuota_al": "2026-11-18",
+   "rentabilidad_pct": {
+    "1d": 0.02,
+    "1m": 0.55,
+    "mes": 0.31,
+    "anio": 6.31,
+    "1a": 7.22,
+    "3a": 28.07
+   },
+   "costos": {
+    "folleto_al": "2026-08-31",
+    "tac_serie_pct": 1.31,
+    "tac_industria_pct": 1.62,
+    "remuneracion_max_pct": 1.071,
+    "gasto_max_pct": 8.0,
+    "comision_max_pct": null,
+    "rescates": "90 días corridos contados desde la fecha de la solicitud de rescate.",
+    "tolerancia_riesgo": "Media",
+    "horizonte": "Mediano/Largo plazo"
+   },
+   "otras_series": [
+    "BTGP",
+    "I",
+    "T"
+   ],
+   "factsheet": {
+    "fecha": "2026-11-10",
+    "archivo": "20261110_FS_Liquidez_Alternativa.pdf"
+   },
+   "datos_hasta": "2026-11-18"
+  },
+  "RVL": {
+   "rut": "9194",
+   "serie": "UNICA",
+   "nemotecnico": "CFIFALCTAC",
+   "nombre": "FONDO DE INVERSIÓN FALCOM TACTICAL CHILEAN EQUITIES",
+   "nombre_corto": "FALCOM TACTICA",
+   "tipo_cmf": "FIRES",
+   "vehiculo": "Fondo de inversión",
+   "administradora": "FALCOM ADMINISTRADORA GENERAL DE FONDOS S.A.",
+   "categoria": "Tradicional",
+   "clase": "Renta Variable",
+   "subclase": "Local",
+   "estado": "Abierto",
+   "moneda": "CLP",
+   "valor_cuota": 3481.3883,
+   "valor_cuota_al": "2026-11-18",
+   "rentabilidad_pct": {
+    "1d": -1.08,
+    "1m": -7.24,
+    "mes": 0.0,
+    "anio": -4.21,
+    "1a": 2.5,
+    "3a": 94.96
+   },
+   "costos": {
+    "folleto_al": "2026-09-30",
+    "tac_serie_pct": 6.77,
+    "tac_industria_pct": 1.61,
+    "remuneracion_max_pct": 1.79,
+    "gasto_max_pct": 3.0,
+    "comision_max_pct": 0.0,
+    "rescates": "Régimen general, se pagan en no más de 160 días corridos contados desde la fecha de solicitud del rescate.Régimen especial, los primeros 6 días hábiles bursátiles de cada trimestre",
+    "tolerancia_riesgo": "Alta",
+    "horizonte": "Más de 1 año."
+   },
+   "otras_series": [],
+   "factsheet": {
+    "fecha": "2026-11-04",
+    "archivo": "20261104_FS_link1.pdf"
+   },
+   "datos_hasta": "2026-11-18"
+  },
+  "RVG": {
+   "rut": "9706",
+   "serie": "UNICA",
+   "nemotecnico": "CFIETFGE",
+   "nombre": "FONDO DE INVERSIÓN ETF SINGULAR GLOBAL EQUITIES",
+   "nombre_corto": "GLOBAL EQUITIES",
+   "tipo_cmf": "FIRES",
+   "vehiculo": "ETF",
+   "administradora": "SINGULAR ASSET MANAGEMENT ADMINISTRADORA GENERAL DE FONDOS S.A.",
+   "categoria": "Tradicional",
+   "clase": "Renta Variable",
+   "subclase": "Global",
+   "estado": "Abierto",
+   "moneda": "CLP",
+   "valor_cuota": 3357.7033,
+   "valor_cuota_al": "2026-11-18",
+   "rentabilidad_pct": {
+    "1d": 0.99,
+    "1m": -2.01,
+    "mes": -2.1,
+    "anio": 18.65,
+    "1a": 19.44,
+    "3a": 80.08
+   },
+   "costos": {
+    "folleto_al": "2026-09-30",
+    "tac_serie_pct": 0.37,
+    "tac_industria_pct": 1.61,
+    "remuneracion_max_pct": 0.25,
+    "gasto_max_pct": 0.5,
+    "comision_max_pct": 0.0,
+    "rescates": "15 días corridos contados desde la fecha de presentación de la solicitud de rescate o el día hábil siguiente en caso que ese día sea sábado, domingo o festivo.",
+    "tolerancia_riesgo": "Alta",
+    "horizonte": "Más de 5 años"
+   },
+   "otras_series": [],
+   "factsheet": {
+    "fecha": "2026-11-04",
+    "archivo": "20261104_FS_ETF_Singular_Global_Equities.pdf"
+   },
+   "datos_hasta": "2026-11-18"
+  }
+ }
+}

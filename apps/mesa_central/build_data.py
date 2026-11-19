@@ -39,6 +39,11 @@ CAT = {"onboarding": "Onboarding", "revision": "Rebalanceo", "cambio_horizonte":
        "alerta_caida": "Alerta", "cierre": "Cierre", "flujo_cliente": "Flujo del cliente"}
 
 
+# Ficha de cada instrumento (fondo o ETF) desde el conector: identificación, serie, costos del folleto
+SHEETS = json.loads((Path(__file__).resolve().parents[2] / "src" / "afi_quant" / "data" / "fixtures"
+                     / "vehicle_sheets.json").read_text(encoding="utf-8"))
+
+
 def js(x):
     if isinstance(x, date):
         return x.isoformat()
@@ -294,7 +299,7 @@ def main(out_dir: str, clients=None):
         funds[k] = {
             "key": k, "nombre": u[k].nombre, "administradora": u[k].administradora, "clase": u[k].clase_activo,
             "subclase": u[k].subclase, "liquidez": u[k].liquidez, "precio_de_mercado": u[k].precio_de_mercado,
-            "ficha": rv.ficha,
+            "ficha": rv.ficha, "conector": SHEETS["fondos"].get(k),
             "idd": {x: i.get(x) for x in ("desde_datos", "hasta", "meses", "anios_datos", "retorno_1a", "retorno_3a",
                                            "retorno_5a", "volatilidad_3a", "max_drawdown_3a", "sharpe_3a", "calmar_3a",
                                            "advertencia")},
@@ -318,7 +323,7 @@ def main(out_dir: str, clients=None):
                      for k, v in u.items()},
         "referencias": adv0["referencias"], "relativo_por_fondo": adv0["relativo"].get("por_fondo"),
         "calidad_datos": adv0["calidad_datos"], "parametros": SIMULATION_VALUES, "biblioteca": SCENARIO_LIBRARY,
-        "fuente_fondos": load_dossiers()["fuente"],
+        "fuente_fondos": load_dossiers()["fuente"], "fuente_instrumentos": {k: SHEETS[k] for k in ("fuente", "consultado")},
         "catalogo": screen_catalog(b.as_of, {"dd_min_track_record_years": P("dd_min_track_record_years")},
                                    {v.series.rut: k for k, v in u.items()},
                                    {u[k].series.rut for k, hs in b.aggregates["tenedores"].items() if hs}),
