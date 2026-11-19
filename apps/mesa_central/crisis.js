@@ -8,7 +8,9 @@ const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matche
 CT.crisis = function (h, C) {
   const H = C.stress.historicos;
   const eps = Object.entries(H).filter(([, e]) => e.trayectoria && e.trayectoria.fechas.length > 1).sort((a, b) => a[1].desde < b[1].desde ? -1 : 1);
-  if (!eps.length) { h.innerHTML = `<div class="notif"><span>${si("sin_datos", "Sin episodios")}</span><span>No hay episodios con datos para esta cartera.</span></div>`; return; }
+  const cancelled = Object.values(H).filter(e => e.no_evaluable).sort((a, b) => a.desde < b.desde ? -1 : 1);
+  const cancelNote = cancelled.length ? `<div class="notif"><span>${si("sin_datos", "No evaluables")}</span><span>${cancelled.map(e => `<b>${esc(e.nombre)}</b> (${fdate(e.desde)}): ${esc(e.motivo.replace("Simulación cancelada: ", ""))}`).join("<br>")}<br><span class="helper">Si un fondo de la cartera no existía al inicio de la crisis, la simulación se cancela: no se usan sustitutos ni se supone que no se movió.</span></span></div>` : "";
+  if (!eps.length) { h.innerHTML = `<div class="notif"><span>${si("sin_datos", "Sin episodios")}</span><span>Ninguna crisis de la biblioteca se puede simular con esta cartera.</span></div>` + cancelNote; return; }
   if (!cr.ep || !H[cr.ep]) cr.ep = eps.slice().sort((a, b) => a[1].trayectoria.caida_maxima - b[1].trayectoria.caida_maxima)[0][0];
   const dd = C.ips.limites.dd, lim = dd == null ? null : -dd / 100, val0 = C.resumen.valor_final;
   // escala común para la galería (Carbon: misma medida en todos los gráficos)
@@ -18,7 +20,7 @@ CT.crisis = function (h, C) {
   h.innerHTML = `
     <div class="pagehead"><h2>Si su cartera de hoy hubiera vivido estas crisis</h2>
       <p class="muted" style="max-width:100ch">Cada crisis aplica los movimientos reales de cada fondo a la cartera actual (${mm(val0)}), comprada al inicio y mantenida sin rebalancear, hasta recuperar su valor o un año después del fin del episodio. Es la Simulación Histórica de la QM (Parte XI) mirada día a día; no predice la próxima crisis.</p></div>
-    <div class="g3" id="cr-gal" role="list"></div>
+    <div class="g3" id="cr-gal" role="list"></div>${cancelNote}
     <div class="tile">
       <div class="th"><div><span class="lbl" id="cr-dates"></span><h2 id="cr-title"></h2></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary sm" id="cr-play">▶ Reproducir</button><button class="btn sm" id="cr-reset">Reiniciar</button>

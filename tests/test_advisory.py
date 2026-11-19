@@ -212,17 +212,17 @@ def test_glide_path_rejects_partial_alternative_with_ineligible_vehicles(lifecyc
 
 # --- Escenarios ----------------------------------------------------------------
 
-def test_episode_uses_declared_substitute_when_vehicle_has_no_history():
+def test_episode_returns_only_vehicles_with_history():
     u = default_universe()
     rets = episode_returns(u, date(2020, 2, 21), date(2020, 3, 23))
-    assert rets["DP"]["fuente"] == "sustituto (MM)"
+    assert "DP" not in rets                      # Facturas parte en oct-2021: sin sustituto
     assert rets["RVL"]["fuente"] == "observado" and rets["RVL"]["retorno"] < -0.2
 
 
 def test_scenarios_report_five_dimensions(lifecycle):
     stress = lifecycle.advisory["stress"]
     assert set(stress["hipoteticos"]) == {"base", "optimista", "adverso", "stress"}
-    for sc in (*stress["hipoteticos"].values(), *stress["historicos"].values()):
+    for sc in (*stress["hipoteticos"].values(), *(v for v in stress["historicos"].values() if not v.get("no_evaluable"))):
         assert {"retorno", "var95_1m_post", "lcr_0_3m", "hhi_post", "metas"} <= set(sc)
     s = stress["hipoteticos"]["stress"]
     w = lifecycle.summary["pesos_actuales"]
@@ -263,17 +263,28 @@ def test_multi_period_returns_match_connector():
 def test_crisis_path_ends_where_the_point_to_point_episode_does():
     u = default_universe()
     vals = {"MM": 16e6, "DP": 62e6, "RVL": 38e6, "RVG": 56e6}
-    d0, d1 = date(2020, 2, 21), date(2020, 3, 23)
+    d0, d1 = date(2022, 1, 3), date(2022, 10, 12)
     path = episode_path(u, vals, d0, d1)
     rets = episode_returns({k: u[k] for k in vals}, d0, d1)
     point = sum(v * (1 + rets[k]["retorno"]) for k, v in vals.items()) / sum(vals.values()) - 1
     assert path["retorno_al_fin"] == pytest.approx(point)
     assert path["caida_maxima"] <= path["retorno_al_fin"]
     assert path["fecha_recuperacion"] is None or path["fecha_recuperacion"] > path["fecha_fondo"]
-    assert path["fuentes"]["DP"] == "sustituto (MM)"
+    assert set(path["fuentes"].values()) == {"observado"}
 
 
-def test_crisis_path_declares_flat_when_substitute_has_no_data():
+def test_crisis_is_cancelled_when_a_held_fund_has_no_history():
     u = default_universe()
-    path = episode_path(u, {"MM": 1e6, "DP": 1e6, "RVL": 1e6}, date(2019, 10, 17), date(2019, 11, 14))
-    assert path["fuentes"]["MM"] == "sin dato: plano" and path["fuentes"]["DP"] == "sin dato: plano"
+    with pytest.raises(ValueError):
+        episode_path(u, {"MM": 1e6, "DP": 1e6, "RVL": 1e6}, date(2020, 2, 21), date(2020, 3, 23))
+    assert episode_path(u, {"RF": 1e6, "RVL": 1e6}, date(2019, 10, 17), date(2019, 11, 14))["caida_maxima"] <= 0
+
+
+def test_engine_marks_episode_not_evaluable(lifecycle):
+    hist = lifecycle.advisory["stress"]["historicos"]
+    covid = hist["covid"]
+    held = {k for k, w in lifecycle.summary["pesos_actuales"].items() if w > 0}
+    if "DP" in held:
+        assert covid["no_evaluable"] and covid["sin_historia"][0]["vehiculo"] == "DP"
+        assert "cancelada" in covid["motivo"] and "retorno" not in covid
+    assert not hist["bajista_2022"].get("no_evaluable")

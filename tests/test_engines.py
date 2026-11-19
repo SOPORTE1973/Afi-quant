@@ -29,10 +29,10 @@ from afi_quant.engines.risk import (
 from afi_quant.engines.series import NavPoint, month_end_points, trailing_window
 from afi_quant.orchestrator.decision_case import DecisionCase
 
-# Publicado por el conector (rentabilidades de rut 9194, hasta 2026-11-11). Al actualizar
+# Publicado por el conector (rentabilidades de rut 9194, hasta 2026-11-18). Al actualizar
 # los valores cuota de los fixtures, estas dos cifras se actualizan con las del conector.
-CONNECTOR_Y1_PCT = 6.013323023823225
-CONNECTOR_Y3_PCT = 105.06280530886225
+CONNECTOR_Y1_PCT = 2.4998500635538656
+CONNECTOR_Y3_PCT = 94.95794001097124
 
 
 def _pts(values, start=date(2026, 1, 1)):

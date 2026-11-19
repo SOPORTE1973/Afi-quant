@@ -181,6 +181,9 @@ function runEngine(d, blocking = []) {
 
 /* Simulación histórica: cartera comprada al inicio del episodio y mantenida (engines/scenario.py episode_path) */
 function episodeRun(values, e) {
+  // Sin historia de algún fondo de la cartera, la crisis no se simula (misma regla que el motor Python)
+  const miss = Object.keys(values).filter(k => values[k] > 0 && !e.rel[k]);
+  if (miss.length) return { cancelada: true, sin_historia: miss.map(k => ({ k, desde: (e.datos_desde || {})[k] })) };
   const t0 = Object.values(values).reduce((a, b) => a + b, 0), path = [];
   for (let i = 0; i < e.fechas.length; i++) { let s = 0; for (const k in values) s += values[k] * e.rel[k][i]; path.push({ f: e.fechas[i], t: s }); if (e.fechas[i] > e.hasta && s >= t0) break; }
   let tr = path[0]; path.forEach(p => { if (p.t < tr.t) tr = p; });
@@ -372,7 +375,8 @@ function profileImpact(n, volPct, dd) {
   const cap = Math.min(MO.params.vol_cap_long_pct, volPct) / 100, [ks, caps] = keysCaps("largo");
   let best = null, bu = -Infinity; for (const w of E.grid(ks, caps)) { const v = E.pvar(w); if (Math.sqrt(v) > cap + 1e-12) continue; const u = E.pret(w) - MO.params.risk_aversion_delta / 2 * v; if (u > bu + 1e-15) { best = w; bu = u; } }
   if (!best) return { n, cap, tol: dd };
-  let worst = null; for (const e of Object.values(MO.episodios)) { const x = episodeRun(best, e); if (!worst || x.caida < worst.caida) worst = { ...x, nombre: e.nombre }; }
+  let worst = null; for (const e of Object.values(MO.episodios)) { const x = episodeRun(best, e); if (x.cancelada) continue; if (!worst || x.caida < worst.caida) worst = { ...x, nombre: e.nombre }; }
+  if (!worst) return { n, cap, w: best, ret: E.pret(best), tol: dd };
   return { n, cap, w: best, ret: E.pret(best), dd: worst.caida, ep: worst.nombre, tol: dd };
 }
 const wbar = w => `<div class="stack" style="min-width:140px" title="${esc(Object.entries(w).map(([k, x]) => `${k} ${pct(x, 0)}`).join(" · "))}">${Object.entries(w).map(([k, x]) => `<i style="width:${x * 100}%;background:${vc(k)}"></i>`).join("")}</div>`;
@@ -469,7 +473,8 @@ function drawFrontier(host, r, key) {
 OBS.proyeccion = function (h) {
   const r = ob.res && !ob.res.gate.length ? ob.res : compute(); if (r.gate.length) return gateNotice(h, r);
   const tot = r.capital, vals = Object.fromEntries(Object.entries(r.total).map(([k, w]) => [k, w * tot]));
-  const eps = Object.entries(MO.episodios).map(([k, e]) => ({ k, e, x: episodeRun(vals, e) })).sort((a, b) => a.x.caida - b.x.caida);
+  const all = Object.entries(MO.episodios).map(([k, e]) => ({ k, e, x: episodeRun(vals, e) }));
+  const eps = all.filter(z => !z.x.cancelada).sort((a, b) => a.x.caida - b.x.caida), cancelled = all.filter(z => z.x.cancelada);
   const dd = has(ob.d.riesgo.dd) ? -ob.d.riesgo.dd / 100 : null;
   h.innerHTML = `<div class="tile"><h3>Probabilidad de lograr cada meta</h3><div class="tw"><table class="dt"><thead><tr><th>Meta</th><th>Horizonte</th><th>Objetivo</th><th>Probabilidad</th><th>Deseada</th><th>Pesimista (p10)</th><th>Central (p50)</th><th>Optimista (p90)</th></tr></thead><tbody>
       ${r.goals.map(g => { const x = r.goalRes[g.key]; if (!x) return ""; if (x.tipo === "reserva") return `<tr><td>${esc(g.nombre)}</td><td>reserva</td><td class="n">${mm(+g.objetivo)}</td><td class="n" colspan="5">cobertura ${pct(x.cobertura, 0)} del objetivo con el capital inicial</td></tr>`;
@@ -482,7 +487,8 @@ OBS.proyeccion = function (h) {
         return `<tr><td>${esc(s.nombre)}</td><td class="n${cls(x)}">${spct(x, 1)}</td><td class="n">${smm(x * tot)}</td><td>${sus.length ? esc(sus.map(k => `${k} (${pct(r.total[k], 0)})`).join(", ")) : "—"}</td></tr>`; }).join("")}</tbody></table></div>
       <p class="helper">Biblioteca ${esc(MO.biblioteca.version)} · ${esc(MO.biblioteca.autor)}.</p></div>
       <div class="tile"><h3>Si la cartera propuesta hubiera vivido estas crisis</h3><div class="tw"><table class="dt"><thead><tr><th>Episodio</th><th>Caída máxima</th><th>En CLP</th><th>Recuperación</th></tr></thead><tbody>
-      ${eps.map(({ e, x }) => `<tr><td>${esc(e.nombre)}<br><span class="helper">${fdate(e.desde)} – ${fdate(e.hasta)}</span></td><td class="n neg">${pct(x.caida, 1)} ${dd != null && x.caida < dd ? si("alerta", "supera la caída tolerada") : ""}</td><td class="n">${smm(x.caida * x.t0)}</td><td class="n">${x.recupera ? x.dias_rec + " días" : "más de 1 año"}</td></tr>`).join("")}</tbody></table></div>
+      ${eps.map(({ e, x }) => `<tr><td>${esc(e.nombre)}<br><span class="helper">${fdate(e.desde)} – ${fdate(e.hasta)}</span></td><td class="n neg">${pct(x.caida, 1)} ${dd != null && x.caida < dd ? si("alerta", "supera la caída tolerada") : ""}</td><td class="n">${smm(x.caida * x.t0)}</td><td class="n">${x.recupera ? x.dias_rec + " días" : "más de 1 año"}</td></tr>`).join("")}
+      ${cancelled.map(({ e, x }) => `<tr><td>${esc(e.nombre)}<br><span class="helper">${fdate(e.desde)} – ${fdate(e.hasta)}</span></td><td colspan="3" style="text-align:left">${si("sin_datos", "No evaluable")} <span class="helper">${esc(x.sin_historia.map(m => `${m.k} sin historia${m.desde ? " (datos desde " + fdate(m.desde) + ")" : ""}`).join("; "))}</span></td></tr>`).join("")}</tbody></table></div>
       <div class="chart" id="ob-crisis"></div><p class="helper">Peor episodio día a día, comprando la cartera total al inicio y manteniéndola (Simulación Histórica, QM XI). ${dd != null ? `Línea roja: caída tolerada del IPS (${pct(dd, 0)}).` : ""}</p></div></div>`;
   const fans = $("ob-fans"); r.goals.forEach(g => { const x = r.goalRes[g.key]; if (x && x.tipo === "meta") drawFan(fans, g, x); });
   if (eps.length) drawCrisis($("ob-crisis"), eps[0], dd);

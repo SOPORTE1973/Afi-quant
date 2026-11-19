@@ -29,7 +29,7 @@ from afi_quant.clients.ips import CATALOG
 from afi_quant.clients.profile import ClientProfile, Goal
 from afi_quant.engines.cma import build_cma, monthly_history
 from afi_quant.engines.goals import SEED, recentered_returns
-from afi_quant.engines.scenario import EPISODE_SUBSTITUTES, RECOVERY_HORIZON_DAYS, _price_on
+from afi_quant.engines.scenario import RECOVERY_HORIZON_DAYS, _price_on, has_history
 from afi_quant.simulation.lifecycle import CMA_WINDOW_MONTHS, LifecycleSimulation
 from afi_quant.simulation.parameters import SCENARIO_LIBRARY, synthetic_ips
 
@@ -56,31 +56,26 @@ POST_VARS = {"Flujos realizados fechados y clasificados", "Posiciones por instru
 
 def episode_relative_paths(universe, desde: date, hasta: date, recovery_days=RECOVERY_HORIZON_DAYS) -> dict:
     """Precio relativo al inicio de cada vehículo, día a día, con las reglas de `episode_path`
-    (sustitutos, plano sin dato) y sin cortar en la recuperación: el corte depende de la cartera."""
+    y sin cortar en la recuperación (el corte depende de la cartera). Un vehículo sin historia
+    al inicio queda con rel=None y "datos_desde": una cartera que lo tenga no simula la crisis."""
     end_cap = date.fromordinal(hasta.toordinal() + recovery_days)
     series, sources = {}, {}
     for k, v in universe.items():
-        p0 = _price_on(v.series.points, desde)
-        if p0 is not None and (desde - p0.fecha).days <= 7:
+        if has_history(v.series.points, desde):
             series[k], sources[k] = v.series.points, "observado"
-    for k in universe:
-        if k in series:
-            continue
-        sub = EPISODE_SUBSTITUTES.get(k)
-        if series.get(sub):
-            series[k], sources[k] = series[sub], f"sustituto ({sub})"
         else:
-            series[k], sources[k] = None, "sin dato: plano"
+            series[k], sources[k] = None, "sin historia"
     last_data = min(s[-1].fecha for s in series.values() if s)
     days = sorted({p.fecha for s in series.values() if s for p in s if desde <= p.fecha <= min(end_cap, last_data)})
     rel = {}
     for k, s in series.items():
         if s is None:
-            rel[k] = [1.0] * len(days)
+            rel[k] = None
             continue
         base = _price_on(s, desde).valor_cuota
         rel[k] = [round(_price_on(s, d).valor_cuota / base, 6) for d in days]
-    return {"fechas": [d.isoformat() for d in days], "rel": rel, "fuentes": sources}
+    return {"fechas": [d.isoformat() for d in days], "rel": rel, "fuentes": sources,
+            "datos_desde": {k: v.series.points[0].fecha.isoformat() for k, v in universe.items() if sources[k] != "observado"}}
 
 
 def control_case(u, reg, as_of: date) -> dict:

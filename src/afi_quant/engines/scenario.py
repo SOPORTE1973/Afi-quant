@@ -29,9 +29,11 @@ caída máxima que tolera el IPS del cliente. Se informa en tres direcciones:
 el escenario Stress escalado, la renta variable en bloque y cada fondo solo.
 La relación es lineal (pérdida = Σ peso × shock), sin modelo nuevo.
 
-Un vehículo sin historia en un episodio no se omite en silencio: se usa
-el sustituto declarado (deuda privada -> money market, igual que en el
-policy benchmark) o, si tampoco hay, 0% con la cobertura informada.
+Un episodio solo se simula si TODOS los fondos de la cartera tienen valor
+cuota al inicio de la crisis. Si a alguno le falta historia, la simulación se
+cancela para esa cartera y se informa qué fondo y desde cuándo tiene datos:
+no se usan sustitutos ni se supone 0%, porque eso haría ver la cartera más
+resistente de lo que la evidencia permite afirmar.
 """
 
 from __future__ import annotations
@@ -45,7 +47,8 @@ from afi_quant.engines.goals import bootstrap_paths, percentile, recentered_retu
 from afi_quant.engines.risk import historical_var_es
 from afi_quant.clients.profile import months_between
 
-EPISODE_SUBSTITUTES = {"DP": "MM"}
+# Margen entre el inicio del episodio y el último dato previo de un fondo para considerarlo con historia
+EPISODE_START_TOLERANCE_DAYS = 7
 
 
 def _price_on(points, d: date):
@@ -53,22 +56,26 @@ def _price_on(points, d: date):
     return before[-1] if before else None
 
 
+def has_history(points, desde: date) -> bool:
+    p0 = _price_on(points, desde)
+    return p0 is not None and (desde - p0.fecha).days <= EPISODE_START_TOLERANCE_DAYS
+
+
+def missing_history(universe, keys, desde: date) -> list[dict]:
+    """Fondos de la cartera sin valor cuota al inicio del episodio (con la fecha de su primer dato)."""
+    return [{"vehiculo": k, "nombre": universe[k].nombre,
+             "datos_desde": universe[k].series.points[0].fecha if universe[k].series.points else None}
+            for k in keys if not has_history(universe[k].series.points, desde)]
+
+
 def episode_returns(universe, desde: date, hasta: date) -> dict:
+    """Retorno observado de cada vehículo en el episodio. Solo vehículos con historia: quien llama
+    cancela el episodio si a la cartera le falta alguno (no hay sustitutos ni 0% supuestos)."""
     out = {}
     for k, v in universe.items():
-        p0, p1 = _price_on(v.series.points, desde), _price_on(v.series.points, hasta)
-        # El precio de inicio debe estar a pocos días del inicio del episodio: si la
-        # serie empieza después, el vehículo no tiene dato para ese episodio.
-        if p0 is not None and p1 is not None and (desde - p0.fecha).days <= 7:
+        if has_history(v.series.points, desde):
+            p0, p1 = _price_on(v.series.points, desde), _price_on(v.series.points, hasta)
             out[k] = {"retorno": p1.valor_cuota / p0.valor_cuota - 1, "fuente": "observado"}
-    for k in universe:
-        if k in out:
-            continue
-        sub = EPISODE_SUBSTITUTES.get(k)
-        if sub in out and out[sub]["fuente"] == "observado":
-            out[k] = {"retorno": out[sub]["retorno"], "fuente": f"sustituto ({sub})"}
-        else:
-            out[k] = {"retorno": 0.0, "fuente": "sin dato: 0%"}
     return out
 
 
@@ -79,24 +86,14 @@ def episode_path(universe, values: dict[str, float], desde: date, hasta: date,
                  recovery_days: int = RECOVERY_HORIZON_DAYS) -> dict:
     """
     Valor diario de la cartera actual (comprar y mantener) durante el episodio y su
-    recuperación. Un vehículo sin historia usa su sustituto declarado; sin sustituto,
-    queda plano (0%) y se informa.
+    recuperación. Exige historia observada de todos los vehículos de la cartera.
     """
     end_cap = date.fromordinal(hasta.toordinal() + recovery_days)
-    series, sources = {}, {}
-    for k in values:
-        pts = universe[k].series.points
-        p0 = _price_on(pts, desde)
-        if p0 is not None and (desde - p0.fecha).days <= 7:
-            series[k], sources[k] = pts, "observado"
-    for k in values:
-        if k in series:
-            continue
-        sub = EPISODE_SUBSTITUTES.get(k)
-        if series.get(sub):
-            series[k], sources[k] = series[sub], f"sustituto ({sub})"
-        else:
-            series[k], sources[k] = None, "sin dato: plano"
+    missing = missing_history(universe, values, desde)
+    if missing:
+        raise ValueError(f"Sin historia al {desde}: {', '.join(m['vehiculo'] for m in missing)}")
+    series = {k: universe[k].series.points for k in values}
+    sources = {k: "observado" for k in values}
     last_data = min(s[-1].fecha for s in series.values() if s)
     days = sorted({p.fecha for s in series.values() if s for p in s if desde <= p.fecha <= min(end_cap, last_data)})
     base = {k: _price_on(s, desde).valor_cuota for k, s in series.items() if s}
@@ -168,11 +165,24 @@ class ScenarioEngine:
         historical = {}
         for key, ep in library["episodios"].items():
             d0, d1 = date.fromisoformat(ep["desde"]), date.fromisoformat(ep["hasta"])
+            missing = missing_history(universe, values, d0)
+            if missing:
+                # Sin historia de algún fondo de la cartera, la crisis no se simula: inventar su
+                # recorrido (sustituto o 0%) haría ver la cartera más resistente de lo que se sabe.
+                historical[key] = {
+                    "nombre": ep["nombre"], "desde": ep["desde"], "hasta": ep["hasta"], "no_evaluable": True,
+                    "sin_historia": missing,
+                    "motivo": "Simulación cancelada: " + "; ".join(
+                        f"{m['nombre']} ({m['vehiculo']}) tiene datos desde {m['datos_desde']:%d-%m-%Y}"
+                        if m["datos_desde"] else f"{m['nombre']} ({m['vehiculo']}) no tiene datos" for m in missing)
+                        + f", después del inicio de la crisis ({d0:%d-%m-%Y}).",
+                }
+                continue
             rets = episode_returns({k: universe[k] for k in values}, d0, d1)
             res = self._assess(ep["nombre"], {k: r["retorno"] for k, r in rets.items()},
                                {k: r["fuente"] for k, r in rets.items()}, set(), base_ctx, base_var)
             res["desde"], res["hasta"] = ep["desde"], ep["hasta"]
-            res["cobertura_observada"] = sum(weights[k] for k, r in rets.items() if r["fuente"] == "observado")
+            res["cobertura_observada"] = 1.0
             res["trayectoria"] = episode_path(universe, values, d0, d1)
             historical[key] = res
 

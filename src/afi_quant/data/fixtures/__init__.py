@@ -3,7 +3,7 @@ Fixtures de series reales (NAV ajustado) en CSV — `fecha,nav_ajustado`.
 
 Fuente: `nav_ajustado` del conector MCP_Afitrading, consultado en vivo
 el 2026-09-30 (fecha_snapshot 2026-09-30 15:01:39) y
-ampliadas el 2026-11-12 con los datos desde el 2026-09-29 (mismo valor en la fecha de
+ampliadas el 2026-11-12 y el 2026-11-19 con los datos desde el 2026-09-29 (mismo valor en la fecha de
 empalme y sin dividendos en el tramo nuevo, así que no hubo reajuste hacia atrás). Son datos reales de
 mercado, no sintéticos: el NAV ajustado ya reinvierte los repartos, por
 eso sirve para medir retorno total (el valor libro cae el día del
@@ -14,15 +14,15 @@ depender del conector. En producción los motores reciben la serie del
 conector en vivo.
 
   - cfifalctac_nav_ajustado.csv — FI Falcom Tactical Chilean Equities
-    (rut 9194, serie UNICA), 2021-09-30 a 2026-11-11.
+    (rut 9194, serie UNICA), 2021-09-30 a 2026-11-18.
     `falcom_tactical()` entrega por defecto la ventana de 3 años
     (desde 2023-09-29) que usa la demo de revisión de fondo.
   - cfietfcd_nav_ajustado.csv — ETF Singular Chile Corta Duración
-    (rut 9823, UNICA), 2021-09-30 a 2026-11-11.
+    (rut 9823, UNICA), 2021-09-30 a 2026-11-18.
   - cfietfcc_nav_ajustado.csv — ETF Singular Chile Corporativo
-    (rut 9705, UNICA), 2021-09-30 a 2026-11-11.
+    (rut 9705, UNICA), 2021-09-30 a 2026-11-18.
   - cfibtgplaa_nav_ajustado.csv — BTG Pactual Liquidez Alternativa FI
-    (rut 10145, serie A), 2021-10-04 (inicio) a 2026-11-11.
+    (rut 10145, serie A), 2021-10-04 (inicio) a 2026-11-18.
   - cfietfge_nav_ajustado.csv — ETF Singular Global Equities
     (rut 9706, UNICA), desde 2019-01-22.
 
@@ -36,14 +36,14 @@ Series vía valor cuota publicado (`valores`), header `fecha,valor_cuota`.
 Solo se usan para vehículos que no reparten (fondo mutuo índice, fondo de
 pensiones): ahí el valor cuota ya es retorno total.
   - sec_ipsa_a_valor_cuota.csv — FM Security Index Fund S&P/CLX IPSA,
-    serie A (rut 8912), 2019-01-01 a 2026-11-11. Proxy del IPSA con
+    serie A (rut 8912), 2019-01-01 a 2026-11-18. Proxy del IPSA con
     historia larga (el ETF Singular IPSA solo existe desde 2025-05).
     `nav_ajustado` no está disponible para este fondo en el conector.
   - afp_sistema_c_valor_cuota.csv — Sistema AFP, Fondo C (promedio
     ponderado por patrimonio, Superintendencia de Pensiones),
     2019-01-01 a 2026-08-31 (el conector publica con un mes de rezago).
   - cfietfipsa_nav_ajustado.csv — ETF Singular IPSA (rut 10748, serie
-    UNICA), 2025-05-12 (inicio de la serie) a 2026-11-11.
+    UNICA), 2025-05-12 (inicio de la serie) a 2026-11-18.
 """
 
 from __future__ import annotations
